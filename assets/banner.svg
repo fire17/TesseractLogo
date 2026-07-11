@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 340" role="img" aria-label="TesseractLogo — the 4D hypercube mark, pure math, infinite resolution">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#0b0f1a"/><stop offset="0.55" stop-color="#101a2e"/><stop offset="1" stop-color="#1a1030"/>
+</linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0" stop-color="#f5d67b"/><stop offset="1" stop-color="#e8b84a"/>
+</linearGradient>
+</defs>
+<rect width="1280" height="340" fill="url(#bg)"/>
+<line x1="1050.0" y1="315.0" x2="947.5" y2="272.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1050.0" y1="315.0" x2="1007.5" y2="212.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1050.0" y1="315.0" x2="1092.5" y2="212.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1050.0" y1="315.0" x2="1152.5" y2="272.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="947.5" y1="272.5" x2="905.0" y2="170.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="947.5" y1="272.5" x2="989.9" y2="170.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="947.5" y1="272.5" x2="1050.0" y2="230.1" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1007.5" y1="212.5" x2="905.0" y2="170.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1007.5" y1="212.5" x2="1050.0" y2="109.9" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1007.5" y1="212.5" x2="1110.1" y2="170.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="905.0" y1="170.0" x2="947.5" y2="67.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="905.0" y1="170.0" x2="1007.5" y2="127.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1092.5" y1="212.5" x2="989.9" y2="170.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1092.5" y1="212.5" x2="1050.0" y2="109.9" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1092.5" y1="212.5" x2="1195.0" y2="170.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="989.9" y1="170.0" x2="947.5" y2="67.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="989.9" y1="170.0" x2="1092.5" y2="127.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1050.0" y1="109.9" x2="947.5" y2="67.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1050.0" y1="109.9" x2="1152.5" y2="67.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="947.5" y1="67.5" x2="1050.0" y2="25.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1152.5" y1="272.5" x2="1050.0" y2="230.1" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1152.5" y1="272.5" x2="1110.1" y2="170.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1152.5" y1="272.5" x2="1195.0" y2="170.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1050.0" y1="230.1" x2="1007.5" y2="127.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1050.0" y1="230.1" x2="1092.5" y2="127.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1110.1" y1="170.0" x2="1007.5" y2="127.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1110.1" y1="170.0" x2="1152.5" y2="67.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1007.5" y1="127.5" x2="1050.0" y2="25.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1195.0" y1="170.0" x2="1092.5" y2="127.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1195.0" y1="170.0" x2="1152.5" y2="67.5" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1092.5" y1="127.5" x2="1050.0" y2="25.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1152.5" y1="67.5" x2="1050.0" y2="25.0" stroke="#e8b84a" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<line x1="1050.0" y1="315.0" x2="947.5" y2="272.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1050.0" y1="315.0" x2="1007.5" y2="212.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1050.0" y1="315.0" x2="1092.5" y2="212.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1050.0" y1="315.0" x2="1152.5" y2="272.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="947.5" y1="272.5" x2="905.0" y2="170.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="947.5" y1="272.5" x2="989.9" y2="170.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="947.5" y1="272.5" x2="1050.0" y2="230.1" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1007.5" y1="212.5" x2="905.0" y2="170.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1007.5" y1="212.5" x2="1050.0" y2="109.9" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1007.5" y1="212.5" x2="1110.1" y2="170.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="905.0" y1="170.0" x2="947.5" y2="67.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="905.0" y1="170.0" x2="1007.5" y2="127.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1092.5" y1="212.5" x2="989.9" y2="170.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1092.5" y1="212.5" x2="1050.0" y2="109.9" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1092.5" y1="212.5" x2="1195.0" y2="170.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="989.9" y1="170.0" x2="947.5" y2="67.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="989.9" y1="170.0" x2="1092.5" y2="127.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1050.0" y1="109.9" x2="947.5" y2="67.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1050.0" y1="109.9" x2="1152.5" y2="67.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="947.5" y1="67.5" x2="1050.0" y2="25.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1152.5" y1="272.5" x2="1050.0" y2="230.1" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1152.5" y1="272.5" x2="1110.1" y2="170.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1152.5" y1="272.5" x2="1195.0" y2="170.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1050.0" y1="230.1" x2="1007.5" y2="127.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1050.0" y1="230.1" x2="1092.5" y2="127.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1110.1" y1="170.0" x2="1007.5" y2="127.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1110.1" y1="170.0" x2="1152.5" y2="67.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1007.5" y1="127.5" x2="1050.0" y2="25.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1195.0" y1="170.0" x2="1092.5" y2="127.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1195.0" y1="170.0" x2="1152.5" y2="67.5" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1092.5" y1="127.5" x2="1050.0" y2="25.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<line x1="1152.5" y1="67.5" x2="1050.0" y2="25.0" stroke="#f5d67b" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+<text x="80" y="150" font-family="Georgia, 'Times New Roman', serif" font-size="68" fill="url(#gold)">TesseractLogo</text>
+<text x="82" y="196" font-family="Georgia, 'Times New Roman', serif" font-size="24" font-style="italic" fill="#b8c4d8">the 4D hypercube mark — pure math, infinite resolution</text>
+<rect x="82" y="222" width="520" height="2" fill="#e8b84a" opacity="0.6"/>
+<text x="82" y="258" font-family="Verdana, Geneva, sans-serif" font-size="16" letter-spacing="3" fill="#7d8aa3">16 VERTICES · 32 EDGES · 8 VARIANTS · ANY SCALE</text>
+</svg>

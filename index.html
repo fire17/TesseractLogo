@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Tesseract Logo Lab</title>
+<style>
+  body { margin: 0; display: flex; height: 100vh; font: 13px/1.4 -apple-system, sans-serif; background: #1e1e1e; color: #ddd; }
+  #panel { width: 240px; padding: 16px; background: #2a2a2a; overflow-y: auto; flex-shrink: 0; }
+  #panel label { display: block; margin: 10px 0 2px; color: #aaa; }
+  #panel input[type=range] { width: 100%; }
+  #panel input[type=color] { width: 100%; height: 28px; border: none; background: none; padding: 0; }
+  #panel input[type=number] { width: 100%; box-sizing: border-box; background: #1e1e1e; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px; }
+  #panel .val { float: right; color: #ddd; }
+  button { width: 100%; margin-top: 8px; padding: 8px; border: none; border-radius: 6px; background: #4a7dff; color: white; font-weight: 600; cursor: pointer; }
+  button:hover { filter: brightness(1.15); }
+  #stage { flex: 1; display: flex; align-items: center; justify-content: center; }
+  #stage svg { max-width: 92%; max-height: 92%; }
+  h3 { margin: 0 0 4px; }
+  .row { display: flex; gap: 8px; } .row > div { flex: 1; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h3>Tesseract Lab</h3>
+  <label>line width <span class="val" id="v-lw"></span></label>
+  <input type="range" id="lw" min="0.5" max="60" step="0.5" value="9">
+  <label>outline thickness <span class="val" id="v-ow"></span></label>
+  <input type="range" id="ow" min="0" max="20" step="0.5" value="3">
+  <label>figure scale <span class="val" id="v-sc"></span></label>
+  <input type="range" id="sc" min="10" max="100" step="1" value="92">
+  <div class="row">
+    <div><label>line color</label><input type="color" id="c-in" value="#ffffff"></div>
+    <div><label>outline</label><input type="color" id="c-out" value="#000000"></div>
+  </div>
+  <label>background</label>
+  <input type="color" id="c-bg" value="#ffffff">
+  <label><input type="checkbox" id="bg-t"> transparent background</label>
+  <label>export size (px)</label>
+  <input type="number" id="px" value="4000" min="16" max="16000">
+  <button id="invert">Invert Colors</button>
+  <button id="save-png">Save PNG</button>
+  <button id="save-svg">Save SVG</button>
+</div>
+<div id="stage"></div>
+<script>
+// Tesseract Petrie projection: 16 vertices of (±1)^4, 32 edges, octagonal symmetry.
+const TH = [0, 1, 2, 3].map(i => Math.PI / 8 + i * Math.PI / 4);
+const U = TH.map(t => [Math.cos(t), Math.sin(t)]);
+const verts = [];
+for (let m = 0; m < 16; m++) verts.push([0, 1, 2, 3].map(i => (m >> i & 1) ? 1 : -1));
+const proj = v => [0, 1].map(a => v.reduce((s, c, i) => s + c * U[i][a], 0));
+const edges = [];
+for (let a = 0; a < 16; a++) for (let b = a + 1; b < 16; b++)
+  if (verts[a].reduce((n, c, i) => n + (c !== verts[b][i]), 0) === 1) edges.push([a, b]);
+const R = Math.max(...verts.map(v => Math.hypot(...proj(v))));
+
+const $ = id => document.getElementById(id);
+const P = { lw: $('lw'), ow: $('ow'), sc: $('sc'), cin: $('c-in'), cout: $('c-out'), cbg: $('c-bg'), bgt: $('bg-t'), px: $('px') };
+
+function svgString() {
+  const lw = +P.lw.value, ow = +P.ow.value, s = 500 * (+P.sc.value / 100) / R;
+  const pt = v => { const [x, y] = proj(v); return [500 + x * s, 500 - y * s]; };
+  const pass = (w, color) => edges.map(([a, b]) => {
+    const [x1, y1] = pt(verts[a]), [x2, y2] = pt(verts[b]);
+    return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
+  }).join('');
+  const bg = P.bgt.checked ? '' : `<rect width="1000" height="1000" fill="${P.cbg.value}"/>`;
+  const outline = ow > 0 ? pass(lw + 2 * ow, P.cout.value) : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">${bg}${outline}${pass(lw, P.cin.value)}</svg>`;
+}
+
+function render() {
+  $('stage').innerHTML = svgString();
+  $('v-lw').textContent = P.lw.value;
+  $('v-ow').textContent = P.ow.value;
+  $('v-sc').textContent = P.sc.value + '%';
+}
+Object.values(P).forEach(el => el.addEventListener('input', render));
+render();
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+$('invert').onclick = () => {
+  const inv = h => '#' + h.slice(1).match(/../g).map(x => (255 - parseInt(x, 16)).toString(16).padStart(2, '0')).join('');
+  [P.cin, P.cout, P.cbg].forEach(el => el.value = inv(el.value));
+  render();
+};
+$('save-svg').onclick = () => download(new Blob([svgString()], { type: 'image/svg+xml' }), 'tesseract.svg');
+$('save-png').onclick = () => {
+  const n = Math.min(16000, Math.max(16, +P.px.value || 4000));
+  const svg = svgString().replace('<svg ', `<svg width="${n}" height="${n}" `);
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = c.height = n;
+    c.getContext('2d').drawImage(img, 0, 0, n, n);
+    c.toBlob(b => download(b, `tesseract-${n}px.png`), 'image/png');
+  };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+};
+</script>
+</body>
+</html>
