@@ -6,7 +6,7 @@
 [![geometry](https://img.shields.io/badge/geometry-16%20vertices%20%C2%B7%2032%20edges-e8b84a)](tesseract.py)
 [![generator](https://img.shields.io/badge/generator-python%20stdlib%20only-3776ab)](tesseract.py)
 [![playground](https://img.shields.io/badge/playground-zero%20dependencies-2ea44f)](index.html)
-[![live app](https://img.shields.io/badge/live%20app-github%20pages-8a2be2)](https://fire17.github.io/TesseractLogo/)
+[![live app](https://img.shields.io/badge/live%20app-github%20pages-8a2be2)](https://tesseract.akeyo.io/)
 [![stars](https://img.shields.io/github/stars/fire17/TesseractLogo?style=social)](https://github.com/fire17/TesseractLogo/stargazers)
 
 <i>A logo you can zoom into forever — because it isn't a picture, it's a theorem.</i>
@@ -32,7 +32,7 @@
 
 ## ⚡ Quickstart
 
-**Zero-install:** open the live playground → **https://fire17.github.io/TesseractLogo/** — drag sliders, pick colors, hit *Save PNG*.
+**Zero-install:** open the live playground → **https://tesseract.akeyo.io/** — drag sliders, pick colors, hit *Save PNG*.
 
 Or regenerate every SVG master locally (stdlib only):
 
@@ -58,7 +58,7 @@ Plus the two gray-outline masters matching the original tami style ([`tesseract.
 
 ## 🕹️ The playground
 
-[`index.html`](index.html) — one self-contained file, zero dependencies, served as the [live GitHub Page](https://fire17.github.io/TesseractLogo/):
+[`index.html`](index.html) — one self-contained file, zero dependencies, served as the [live GitHub Page](https://tesseract.akeyo.io/):
 
 | Control | What it does |
 |---|---|
