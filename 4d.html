@@ -85,6 +85,23 @@
   #fx[hidden] { display: none; }
   body.shaded #c { visibility: hidden; }
 
+  /* Hero mode: the lab embedded as the landing animation. The canvas fills the whole frame;
+     the rail becomes an overlay that slides in only when the parent page asks for the HUD. */
+  body.hero { grid-template-columns: 1fr; }
+  body.hero #rail {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 268px; z-index: 40;
+    transform: translateX(-100%); transition: transform .38s cubic-bezier(.22,1,.36,1);
+    box-shadow: 20px 0 60px #000a;
+  }
+  body.hero #keys, body.hero #topbar, body.hero #legend {
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  body.hero.hero-open #rail { transform: none; }
+  body.hero.hero-open #legend, body.hero.hero-open #topbar { opacity: 1; pointer-events: auto; }
+  @media (max-width: 820px) {
+    body.hero #rail { width: min(268px, 82vw); }
+  }
+
   #legend {
     position: absolute; left: 22px; bottom: 20px; pointer-events: none;
     font-size: 10.5px; color: var(--muted); line-height: 1.6;
@@ -296,7 +313,8 @@
   <canvas id="c"></canvas>
   <canvas id="fx" hidden></canvas>
   <div id="topbar">
-    <a href="index.html">Logo lab</a>
+    <a href="index.html">Home</a>
+    <a href="svg-lab.html">Logo lab</a>
     <a href="https://github.com/fire17/TesseractLogo" target="_blank" rel="noopener">GitHub</a>
   </div>
   <div id="keys">
@@ -1093,7 +1111,7 @@ function renderKeys() {
       `<b>${i + 1}</b>${travel}` +
       `<label class="ck-d">stay <input class="h" type="number" min="0" max="60" step="0.1" aria-label="Seconds to stay on checkpoint ${i + 1}">s</label>` +
       `</div><button class="ck-x" aria-label="Delete checkpoint ${i + 1}">×</button>`;
-    row.querySelector('img').src = k.thumb;
+    if (k.thumb) row.querySelector('img').src = k.thumb;    // null src would request "/null"
     row.querySelector('img').onclick = () => {              // click a thumb to jump to that state
       tl = null;
       Object.assign(S, structuredClone(k.state));
@@ -1229,22 +1247,12 @@ function cleanState(s = {}) {
 }
 
 $('ck-load').onclick = () => $('ck-file').click();
-$('ck-file').onchange = async e => {
-  const file = e.target.files[0];
-  e.target.value = '';                         // so the same file can be loaded twice
-  if (!file) return;
-  let raw;
-  try {
-    raw = JSON.parse(await file.text());
-  } catch {
-    flash("That file isn't valid JSON.");
-    return;
-  }
+// Apply a scene document (v1 array, or v2 with playback/view). Shared by file-import and
+// the hero/landing autoload, so both routes coerce and restore identically.
+function applyScene(raw, { replace = false, renderThumbs = true } = {}) {
   const list = Array.isArray(raw) ? raw : raw?.checkpoints;
-  if (!Array.isArray(list) || !list.length) {
-    flash('No checkpoints found in that file.');
-    return;
-  }
+  if (!Array.isArray(list) || !list.length) return { added: 0, ok: false };
+  if (replace) KEYS.length = 0;
   const before = KEYS.length;
 
   // A v2 file carries how it was played and drawn, not just the states. Restore that too,
@@ -1270,32 +1278,45 @@ $('ck-file').onchange = async e => {
     $('hue').value = S.hue * 100;
   }
   for (const item of list) {
-    const state = cleanState(item?.state ?? item);            // accept bare states too
     const thumb = typeof item?.thumb === 'string' && item.thumb.startsWith('data:image/')
-      ? item.thumb
-      : null;                                                 // no thumbnail? draw one below
+      ? item.thumb : null;                                    // no thumbnail? draw one below
     KEYS.push({
       id: Date.now() + Math.random(),
-      state,
+      state: cleanState(item?.state ?? item),                 // accept bare states too
       thumb,
       dur: clamp(item?.dur, 0.2, 60, 2),
       hold: clamp(item?.hold, 0, 60, 0),
     });
   }
-  // Render a thumbnail for any checkpoint that arrived without one.
-  const keep = capture();
-  for (const k of KEYS) {
-    if (k.thumb) continue;
-    Object.assign(S, structuredClone(k.state));
-    draw();
-    k.thumb = thumbnail();
+  if (renderThumbs) {                                         // render any missing thumbnail
+    const keep = capture();
+    for (const k of KEYS) {
+      if (k.thumb) continue;
+      Object.assign(S, structuredClone(k.state));
+      draw();
+      k.thumb = thumbnail();
+    }
+    Object.assign(S, keep);
+    S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
+    syncDial(); draw();
   }
-  Object.assign(S, keep);
-  S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
-  syncDial(); draw();
-
   persist(); renderKeys();
-  flash(`Added ${KEYS.length - before} checkpoints — ${KEYS.length} in total.`);
+  return { added: KEYS.length - before, ok: true };
+}
+
+$('ck-file').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';                         // so the same file can be loaded twice
+  if (!file) return;
+  let raw;
+  try {
+    raw = JSON.parse(await file.text());
+  } catch {
+    flash("That file isn't valid JSON.");
+    return;
+  }
+  const r = applyScene(raw, { replace: false });
+  flash(r.ok ? `Added ${r.added} checkpoints — ${KEYS.length} in total.` : 'No checkpoints found in that file.');
 };
 $('tl-play').onclick = () => {
   if (tl) { stopTimeline(); return; }
@@ -1378,4 +1399,49 @@ restore();
 renderKeys();
 syncDial();
 requestAnimationFrame(frame);
+
+// --- hero mode: the same lab, embedded as the site's landing animation -----------
+// ?hero=1 hides the rail + overlays and plays a scene full-bleed; the parent page shows
+// the HUD by posting {type:'hud', open}. This is why the landing needs no second engine.
+const params = new URLSearchParams(location.search);
+const HERO = params.get('hero') === '1';
+
+function setHud(open) {
+  document.body.classList.toggle('hero-open', open);
+  if (open && KEYS.some(k => !k.thumb)) {                   // hero skipped thumbs; draw them now the list shows
+    const keep = capture();
+    for (const k of KEYS) if (!k.thumb) { Object.assign(S, structuredClone(k.state)); draw(); k.thumb = thumbnail(); }
+    Object.assign(S, keep); S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp'; draw();
+    renderKeys();
+  }
+  if (parent !== window) parent.postMessage({ tesseract: 'hud', open }, '*');
+}
+
+async function bootHero() {
+  document.body.classList.add('hero');
+  const scene = params.get('scene') || 'default-scene.json';
+  try {
+    const raw = await (await fetch(scene, { cache: 'no-cache' })).json();
+    KEYS.length = 0;
+    applyScene(raw, { replace: true, renderThumbs: false });   // thumbs only needed if HUD opens
+  } catch { /* no scene file: fall back to the built-in movement already running */ }
+  if (KEYS.length >= 2 && !reduced) startTimeline({ loop: $('tl-loop').checked || true });
+}
+
+// The parent (landing page) drives the embedded lab through these messages.
+addEventListener('message', e => {
+  const m = e.data;
+  if (!m || m.tesseract !== 'cmd') return;
+  if (m.action === 'hud') setHud(!!m.open);
+  if (m.action === 'toggleHud') setHud(!document.body.classList.contains('hero-open'));
+  if (m.action === 'play') { if (!tl && KEYS.length >= 2) startTimeline({ loop: true }); }
+});
+
+if (HERO) {
+  bootHero();
+} else if (params.get('scene')) {          // the lab can also deep-link a scene without hero chrome
+  fetch(params.get('scene')).then(r => r.json()).then(raw => {
+    applyScene(raw, { replace: true }); flash('Scene loaded.');
+  }).catch(() => {});
+}
 </script>

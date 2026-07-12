@@ -5,7 +5,7 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![geometry](https://img.shields.io/badge/geometry-16%20vertices%20%C2%B7%2032%20edges-e8b84a)](tesseract.py)
 [![generator](https://img.shields.io/badge/generator-python%20stdlib%20only-3776ab)](tesseract.py)
-[![playground](https://img.shields.io/badge/playground-zero%20dependencies-2ea44f)](index.html)
+[![playground](https://img.shields.io/badge/playground-zero%20dependencies-2ea44f)](svg-lab.html)
 [![4D lab](https://img.shields.io/badge/4D%20lab-6%20rotation%20planes%20%C2%B7%208%20cells-8b6bf0)](https://tesseract.akeyo.io/4d.html)
 [![checkpoints](https://img.shields.io/badge/checkpoints-keyframe%20%2B%20export%20video-3fd0e0)](https://tesseract.akeyo.io/4d.html)
 [![live app](https://img.shields.io/badge/live%20app-github%20pages-8a2be2)](https://tesseract.akeyo.io/)
@@ -47,7 +47,7 @@ rsvg-convert -w 4000 -h 4000 tesseract-outlined.svg -o tesseract-4k.png
 
 ## 🌀 The motion lab — watch the fourth dimension
 
-**[tesseract.akeyo.io/4d.html](https://tesseract.akeyo.io/4d.html)** — the same 32 edges, now turning. Hue encodes the coordinate you can't point at: **cold is far in `w`, gold is near**, so the invisible axis becomes something you can actually watch.
+The site now **opens on the animation itself** — [tesseract.akeyo.io](https://tesseract.akeyo.io/) is a reading piece with the tesseract turning, live, at the top; scroll and it docks to a strip while an article about the mark flows beneath. The full instrument is [tesseract.akeyo.io/4d.html](https://tesseract.akeyo.io/4d.html) — the same 32 edges, now turning. Hue encodes the coordinate you can't point at: **cold is far in `w`, gold is near**, so the invisible axis becomes something you can actually watch.
 
 | | |
 |---|---|
@@ -99,7 +99,7 @@ Plus the two gray-outline masters matching the original tami style ([`tesseract.
 
 ## 🕹️ The playground
 
-[`index.html`](index.html) — one self-contained file, zero dependencies, served as the [live GitHub Page](https://tesseract.akeyo.io/):
+[`svg-lab.html`](svg-lab.html) — one self-contained file, zero dependencies, served at [tesseract.akeyo.io/svg-lab.html](https://tesseract.akeyo.io/svg-lab.html):
 
 | Control | What it does |
 |---|---|

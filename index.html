@@ -1,114 +1,256 @@
-<!DOCTYPE html>
-<html>
-<head>
 <meta charset="utf-8">
-<title>Tesseract Logo Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Tesseract — a mark that thinks in four dimensions</title>
+<meta name="description" content="A logo that isn't a picture but a theorem: the Petrie projection of a 4-dimensional hypercube, alive and turning.">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="alternate icon" type="image/png" href="assets/favicon.png">
 <style>
-  body { margin: 0; display: flex; height: 100vh; font: 13px/1.4 -apple-system, sans-serif; background: #1e1e1e; color: #ddd; }
-  #panel { width: 240px; padding: 16px; background: #2a2a2a; overflow-y: auto; flex-shrink: 0; }
-  #panel label { display: block; margin: 10px 0 2px; color: #aaa; }
-  #panel input[type=range] { width: 100%; }
-  #panel input[type=color] { width: 100%; height: 28px; border: none; background: none; padding: 0; }
-  #panel input[type=number] { width: 100%; box-sizing: border-box; background: #1e1e1e; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px; }
-  #panel .val { float: right; color: #ddd; }
-  button { width: 100%; margin-top: 8px; padding: 8px; border: none; border-radius: 6px; background: #4a7dff; color: white; font-weight: 600; cursor: pointer; }
-  button:hover { filter: brightness(1.15); }
-  #stage { flex: 1; display: flex; align-items: center; justify-content: center; }
-  #stage svg { max-width: 92%; max-height: 92%; }
-  h3 { margin: 0 0 4px; }
-  .row { display: flex; gap: 8px; } .row > div { flex: 1; }
+  :root {
+    --ink: #080b14;          /* the same night the tesseract turns in */
+    --panel: #0e1320;
+    --edge: #1c2438;
+    --text: #e8ecf5;
+    --muted: #93a0ba;
+    --faint: #5f6b85;
+    --gold: #e8b84a;
+    --gold-soft: #f5d67b;
+    --serif: Georgia, "Times New Roman", serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --measure: 66ch;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--ink); color: var(--text);
+    font-family: var(--serif); -webkit-font-smoothing: antialiased;
+  }
+  /* Scroll is LOCKED until the reader chooses to enter the piece. */
+  body.locked { overflow: hidden; height: 100vh; }
+
+  /* ---- the stage: the animation fixed at the top, shrinking to a docked strip ---- */
+  /* Fixed + a one-screen spacer (not sticky-shrink): the article can then flow BENEATH the
+     docked strip instead of sliding over it. --dockvh is the docked height in vh. */
+  #stage {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;   /* above the article, which scrolls under it */
+    height: 100vh; background: var(--ink);
+  }
+  #spacer { height: 100vh; }   /* the scroll distance over which the stage shrinks */
+  #frame {
+    position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block;
+    background: var(--ink);
+  }
+  /* a soft edge + hairline under the strip, fading in only once the stage has docked */
+  #stage::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -40px; height: 41px;
+    background: linear-gradient(var(--ink), transparent);
+    border-top: 1px solid var(--edge);
+    opacity: var(--dock, 0); pointer-events: none;
+  }
+
+  /* ---- controls that float over the stage ---- */
+  .hud-btn {
+    position: fixed; z-index: 30; cursor: pointer;
+    background: #0e1320cc; color: var(--text); border: 1px solid var(--edge);
+    border-radius: 999px; padding: 9px 15px; font-family: var(--mono); font-size: 12.5px;
+    backdrop-filter: blur(8px); transition: background .18s, border-color .18s, transform .18s cubic-bezier(.22,1,.36,1);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .hud-btn:hover { background: #141b2c; border-color: #3a4666; transform: translateY(-1px); }
+  #open-hud { top: 18px; right: 18px; }
+  #open-hud .g { color: var(--gold); }
+
+  /* the entry cue: sits at the bottom of the first screen, unlocks + nudges down */
+  #enter {
+    position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%); z-index: 30;
+    flex-direction: column; gap: 9px; text-align: center; padding: 13px 22px;
+    font-family: var(--serif); font-size: 15px; letter-spacing: .01em;
+  }
+  #enter .sub { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  #enter .arrow { font-size: 20px; color: var(--gold); animation: bob 2.4s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+  body:not(.locked) #enter { opacity: 0; pointer-events: none; transition: opacity .4s; }
+
+  /* ---- the article: flows in beneath the docked strip ---- */
+  #read {
+    position: relative; z-index: 6; background: var(--ink);
+    padding-top: 34vh;              /* clears the ~30vh docked strip at the moment the article appears */
+  }
+  article {
+    max-width: var(--measure); margin: 0 auto; padding: 0 24px 20vh;
+  }
+  .masthead {
+    text-align: center; padding: 64px 0 30px; border-bottom: 1px solid var(--edge); margin-bottom: 44px;
+  }
+  .masthead .kicker {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .34em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 20px;
+  }
+  .masthead h1 {
+    font-weight: 400; font-size: clamp(2.1rem, 6vw, 3.6rem); line-height: 1.04; margin: 0 0 18px;
+    letter-spacing: -0.02em; text-wrap: balance;
+  }
+  .masthead .standfirst {
+    font-size: 1.2rem; color: var(--muted); font-style: italic; line-height: 1.5; text-wrap: balance;
+    max-width: 52ch; margin: 0 auto;
+  }
+  .byline {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em; color: var(--faint);
+    margin-top: 22px; text-transform: uppercase;
+  }
+  article h2 {
+    font-weight: 400; font-size: 1.55rem; letter-spacing: -0.01em; margin: 52px 0 4px;
+  }
+  article h2 .n {
+    font-family: var(--mono); font-size: 0.7rem; color: var(--gold); letter-spacing: .1em;
+    display: block; margin-bottom: 8px;
+  }
+  article p { font-size: 1.14rem; line-height: 1.72; margin: 18px 0; color: #dbe2f0; text-wrap: pretty; }
+  article p.lead { font-size: 1.3rem; line-height: 1.6; color: var(--text); }
+  article p.lead::first-letter {
+    font-size: 3.4rem; float: left; line-height: 0.82; padding: 6px 12px 0 0; color: var(--gold-soft);
+  }
+  article a { color: var(--gold); text-decoration: none; border-bottom: 1px solid #e8b84a55; }
+  article a:hover { border-bottom-color: var(--gold); }
+  article em { color: var(--gold-soft); font-style: italic; }
+  .pull {
+    font-family: var(--serif); font-style: italic; font-size: 1.55rem; line-height: 1.4;
+    color: var(--gold-soft); text-align: center; margin: 46px auto; max-width: 46ch; text-wrap: balance;
+  }
+  .cols { columns: 2; column-gap: 40px; }
+  .cols p { margin-top: 0; }
+  @media (max-width: 620px) { .cols { columns: 1; } }
+  .rule { border: none; border-top: 1px solid var(--edge); margin: 56px 0; }
+  .endmark { text-align: center; color: var(--gold); font-size: 1.3rem; margin: 40px 0; }
+  .foot {
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted); line-height: 1.9; text-align: center;
+  }
+  .foot a { color: var(--muted); border: none; text-decoration: underline; text-underline-offset: 3px; }
+  .foot a:hover { color: var(--gold); }
+
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } #enter .arrow { animation: none; } }
 </style>
-</head>
-<body>
-<div id="panel">
-  <h3>Tesseract Lab</h3>
-  <label>line width <span class="val" id="v-lw"></span></label>
-  <input type="range" id="lw" min="0.5" max="60" step="0.5" value="9">
-  <label>outline thickness <span class="val" id="v-ow"></span></label>
-  <input type="range" id="ow" min="0" max="20" step="0.5" value="3">
-  <label>figure scale <span class="val" id="v-sc"></span></label>
-  <input type="range" id="sc" min="10" max="100" step="1" value="92">
-  <div class="row">
-    <div><label>line color</label><input type="color" id="c-in" value="#ffffff"></div>
-    <div><label>outline</label><input type="color" id="c-out" value="#000000"></div>
-  </div>
-  <label>background</label>
-  <input type="color" id="c-bg" value="#ffffff">
-  <label><input type="checkbox" id="bg-t"> transparent background</label>
-  <label>export size (px)</label>
-  <input type="number" id="px" value="4000" min="16" max="16000">
-  <button id="invert">Invert Colors</button>
-  <button id="save-png">Save PNG</button>
-  <button id="save-svg">Save SVG</button>
-  <a href="4d.html" style="display:block;margin-top:14px;padding:9px;border-radius:6px;background:#1a1030;color:#f5d67b;text-decoration:none;text-align:center;font-weight:600;border:1px solid #e8b84a">See it move in 4D →</a>
-  <a href="https://github.com/fire17/TesseractLogo" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;padding:8px;border-radius:6px;background:#333;color:#eee;text-decoration:none;font-weight:600;border:1px solid #555">
-  <svg width="18" height="18" viewBox="0 0 16 16" fill="#eee"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
-  View on GitHub</a>
+
+<div id="stage">
+  <iframe id="frame" title="The tesseract, turning" src="4d.html?hero=1"
+          allow="autoplay" loading="eager"></iframe>
 </div>
-<div id="stage"></div>
+<div id="spacer" aria-hidden="true"></div>
+
+<button id="open-hud" class="hud-btn"><span class="g">✦</span> <span id="hud-label">open the lab</span></button>
+
+<div id="enter" class="hud-btn">
+  <span class="sub">a piece about itself</span>
+  <span>Read on</span>
+  <span class="arrow">↓</span>
+</div>
+
+<main id="read">
+  <article>
+    <div class="masthead">
+      <div class="kicker">The Organism Review · Geometry Desk</div>
+      <h1>A logo that thinks in four dimensions</h1>
+      <p class="standfirst">The mark turning above this sentence was never drawn. It is the honest shadow of a shape that cannot fit in our world — and it agreed to sit still only long enough to become a signature.</p>
+      <div class="byline">Filed from the space between three dimensions and four</div>
+    </div>
+
+    <p class="lead">Look up. The thing rotating at the top of this page is a <em>tesseract</em> — a cube's older, stranger sibling, the four-dimensional hypercube. You are not seeing it. You cannot see it; your eyes end at three dimensions. What you are seeing is its shadow, cast down one dimension the way a wire cube throws a flat tangle of lines onto a wall.</p>
+
+    <p>That shadow has a name mathematicians gave it a century ago: the <em>Petrie projection</em>. Point a hypercube down its longest diagonal, let it fall onto the page, and its sixteen corners arrange themselves into a perfect eight-fold star. Every straight line you can trace in the mark is one of the tesseract's thirty-two edges, caught mid-fall. It is not a decoration of a four-dimensional idea. It <em>is</em> the four-dimensional idea, minus one dimension, told without a single lie.</p>
+
+    <div class="pull">"It isn't a picture of a theorem. It's the theorem, holding still."</div>
+
+    <h2><span class="n">§ 01</span>Sixteen corners, thirty-two edges, zero pixels</h2>
+    <p>Here is the part that should stop you. This mark is not an image file that someone nudged into shape in a design tool. It is <em>computed</em> — about fifty lines of plain code that place every vertex at a corner of four-dimensional space, join the ones that differ in exactly one coordinate, and flatten the result. Change one number and the whole figure regenerates, razor-sharp, at any size from a favicon to a billboard. The logo is source code. It has no native resolution because it has no pixels to run out of.</p>
+
+    <p>The consequence is quiet but total: the mark can never blur, never pixelate, never look "low-res." A four-dimensional object rendered as mathematics is as crisp at ten metres as at ten centimetres, because at every scale it is being <em>solved</em>, not enlarged.</p>
+
+    <h2><span class="n">§ 02</span>Why it moves</h2>
+    <p>A still tesseract is a paradox you can frame. A turning one is a paradox you can <em>watch happen</em>. Give the shape a rotation in one of its ordinary planes and it tumbles the way any object would. But a hypercube has planes we don't — planes that turn <em>through</em> the fourth direction — and a rotation there does something no solid object can: the inner cube swells, passes through the outer one, and trades places with it, all without anything tearing.</p>
+
+    <p class="cols">
+      The colour is the tell. Each line is tinted by how deep it sits along the axis you cannot point to — cold and blue where the shape recedes into the fourth dimension, warm and gold where it leans toward you. So the invisible direction stops being a rumour and becomes something your eye can follow. Watch the figure open into its unfolded net and every colour drains to a single hue: proof, in pigment, that a flattened hypercube truly has surrendered its fourth coordinate.
+    </p>
+
+    <div class="pull">"The cube passes through itself. Nothing tears. That is the whole argument for a fourth dimension, performed rather than claimed."</div>
+
+    <h2><span class="n">§ 03</span>The cross that Dalí painted</h2>
+    <p>Unfold a paper cube and it falls flat into six squares — a little crucifix of cardboard. Unfold a tesseract and its eight cubic cells fall into three-dimensional space as an eight-cube cross. Salvador Dalí painted exactly this shape in 1954 and hung a figure upon it, an object from a dimension we can't enter standing in for a mystery we can't hold. The mark above can perform that unfolding on command, hinging its cells apart and closing them again, and the geometry has been checked every way it can bend.</p>
+
+    <hr class="rule">
+
+    <p>The controls for all of this are one tap away — the button in the corner opens the full instrument: six planes of rotation, the fold, the fractal echoes that repeat the shape through its own turning, and a way to save any moment you like and string those moments into an animation of your own.</p>
+
+    <div class="endmark">◆</div>
+
+    <p class="foot">
+      Rendered live from <a href="4d.html">the motion lab</a> · built from
+      <a href="svg-lab.html">the logo generator</a> · open source on
+      <a href="https://github.com/fire17/TesseractLogo">GitHub</a><br>
+      Sixteen vertices. Thirty-two edges. One theorem, any resolution.
+    </p>
+  </article>
+</main>
+
 <script>
-// Tesseract Petrie projection: 16 vertices of (±1)^4, 32 edges, octagonal symmetry.
-const TH = [0, 1, 2, 3].map(i => Math.PI / 8 + i * Math.PI / 4);
-const U = TH.map(t => [Math.cos(t), Math.sin(t)]);
-const verts = [];
-for (let m = 0; m < 16; m++) verts.push([0, 1, 2, 3].map(i => (m >> i & 1) ? 1 : -1));
-const proj = v => [0, 1].map(a => v.reduce((s, c, i) => s + c * U[i][a], 0));
-const edges = [];
-for (let a = 0; a < 16; a++) for (let b = a + 1; b < 16; b++)
-  if (verts[a].reduce((n, c, i) => n + (c !== verts[b][i]), 0) === 1) edges.push([a, b]);
-const R = Math.max(...verts.map(v => Math.hypot(...proj(v))));
+  const stage = document.getElementById('stage');
+  const frame = document.getElementById('frame');
+  const enter = document.getElementById('enter');
+  const openHud = document.getElementById('open-hud');
+  const hudLabel = document.getElementById('hud-label');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const $ = id => document.getElementById(id);
-const P = { lw: $('lw'), ow: $('ow'), sc: $('sc'), cin: $('c-in'), cout: $('c-out'), cbg: $('c-bg'), bgt: $('bg-t'), px: $('px') };
+  // --- scroll is locked until the reader chooses to enter -------------------------
+  let unlocked = false;
+  document.body.classList.add('locked');
 
-function svgString() {
-  const lw = +P.lw.value, ow = +P.ow.value, s = 500 * (+P.sc.value / 100) / R;
-  const pt = v => { const [x, y] = proj(v); return [500 + x * s, 500 - y * s]; };
-  const pass = (w, color) => edges.map(([a, b]) => {
-    const [x1, y1] = pt(verts[a]), [x2, y2] = pt(verts[b]);
-    return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
-  }).join('');
-  const bg = P.bgt.checked ? '' : `<rect width="1000" height="1000" fill="${P.cbg.value}"/>`;
-  const outline = ow > 0 ? pass(lw + 2 * ow, P.cout.value) : '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">${bg}${outline}${pass(lw, P.cin.value)}</svg>`;
-}
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    document.body.classList.remove('locked');
+    // a small auto-scroll nudge, so it's unmistakable the page continues below
+    const target = Math.min(window.innerHeight * 0.16, 150);
+    if (reduced) { window.scrollTo(0, target); return; }
+    const start = performance.now(), from = window.scrollY;
+    (function ease(now) {
+      const u = Math.min(1, (now - start) / 620);
+      const e = 1 - Math.pow(1 - u, 3);
+      window.scrollTo(0, from + (target - from) * e);
+      if (u < 1) requestAnimationFrame(ease);
+    })(start);
+  }
+  enter.addEventListener('click', unlock);
+  // pressing a key or trying to scroll while locked also counts as "enter"
+  addEventListener('keydown', e => {
+    if (!unlocked && ['ArrowDown','PageDown','Space','End'].includes(e.code)) { e.preventDefault(); unlock(); }
+  });
+  addEventListener('wheel', e => { if (!unlocked) { e.preventDefault(); unlock(); } }, { passive: false });
+  addEventListener('touchmove', e => { if (!unlocked) { e.preventDefault(); unlock(); } }, { passive: false });
 
-function render() {
-  $('stage').innerHTML = svgString();
-  $('v-lw').textContent = P.lw.value;
-  $('v-ow').textContent = P.ow.value;
-  $('v-sc').textContent = P.sc.value + '%';
-}
-Object.values(P).forEach(el => el.addEventListener('input', render));
-render();
+  // --- the stage shrinks and docks as the article scrolls up ----------------------
+  // Full screen at the top; by the time you've scrolled one viewport it is a slim strip
+  // pinned to the top, still animating, with the article flowing beneath it.
+  const DOCK_VH = 0.30;           // docked height as a fraction of the viewport (matches #read padding)
+  function onScroll() {
+    const vh = window.innerHeight;
+    const p = Math.min(1, window.scrollY / vh);            // 0 → 1 over the first screen
+    const e = p * p * (3 - 2 * p);                          // smoothstep
+    stage.style.height = (vh * (1 - (1 - DOCK_VH) * e)) + 'px';
+    stage.style.setProperty('--dock', e.toFixed(3));
+  }
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', onScroll);
+  onScroll();
 
-function download(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-$('invert').onclick = () => {
-  const inv = h => '#' + h.slice(1).match(/../g).map(x => (255 - parseInt(x, 16)).toString(16).padStart(2, '0')).join('');
-  [P.cin, P.cout, P.cbg].forEach(el => el.value = inv(el.value));
-  render();
-};
-$('save-svg').onclick = () => download(new Blob([svgString()], { type: 'image/svg+xml' }), 'tesseract.svg');
-$('save-png').onclick = () => {
-  const n = Math.min(16000, Math.max(16, +P.px.value || 4000));
-  const svg = svgString().replace('<svg ', `<svg width="${n}" height="${n}" `);
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = c.height = n;
-    c.getContext('2d').drawImage(img, 0, 0, n, n);
-    c.toBlob(b => download(b, `tesseract-${n}px.png`), 'image/png');
-  };
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-};
+  // --- the one button that opens the whole HUD, driving the embedded lab ----------
+  let hudOpen = false;
+  openHud.addEventListener('click', () => {
+    frame.contentWindow.postMessage({ tesseract: 'cmd', action: 'toggleHud' }, '*');
+  });
+  addEventListener('message', e => {
+    if (e.data?.tesseract === 'hud') {
+      hudOpen = !!e.data.open;
+      hudLabel.textContent = hudOpen ? 'close the lab' : 'open the lab';
+      openHud.style.borderColor = hudOpen ? 'var(--gold)' : '';
+    }
+  });
 </script>
-</body>
-</html>
