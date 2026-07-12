@@ -96,7 +96,12 @@
   #topbar a:hover { color: var(--gold); border-bottom-color: var(--gold); }
 
   /* checkpoints */
-  #keys-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  /* the path can be as long as you like, so the list scrolls rather than pushing
+     Play and Export off the bottom of the rail */
+  #keys-list {
+    margin-top: 10px; display: flex; flex-direction: column; gap: 6px;
+    max-height: 336px; overflow-y: auto; overscroll-behavior: contain;
+  }
   .ck {
     display: flex; align-items: center; gap: 9px;
     border: 1px solid var(--edge); border-radius: 7px; padding: 6px; background: #10162550;
@@ -646,15 +651,27 @@ function thumbnail() {
 }
 
 function saveCheckpoint() {
-  if (KEYS.length >= 24) { flash('24 checkpoints is the limit — delete one first.'); return; }
   draw();                                                   // thumbnail must show this exact state
   KEYS.push({ id: Date.now() + Math.random(), state: capture(), thumb: thumbnail(), dur: 2.0 });
-  persist(); renderKeys();
-  flash(`Checkpoint ${KEYS.length} saved.`);
+  renderKeys();
+  // No cap on how long an animation can be. Storage is the only real ceiling, and if we
+  // hit it the checkpoints still work for this session — only saving them for the next
+  // one fails, so say that plainly rather than refusing the save.
+  flash(persist()
+    ? `Checkpoint ${KEYS.length} saved.`
+    : `Checkpoint ${KEYS.length} saved — too many to keep after a reload.`);
 }
 
+let storageWarned = false;
 function persist() {
-  try { localStorage.setItem(STORE, JSON.stringify(KEYS)); } catch { /* private mode: session only */ }
+  try {
+    localStorage.setItem(STORE, JSON.stringify(KEYS));
+    storageWarned = false;
+    return true;
+  } catch {
+    storageWarned = true;                                   // quota, or a private window
+    return false;
+  }
 }
 function restore() {
   try {
@@ -700,7 +717,7 @@ function updateTlInfo() {
   $('tl-play').disabled = !ok;
   $('tl-export').disabled = !ok;
   $('tl-info').textContent = ok
-    ? `${n} checkpoints · ${timelineLength().toFixed(1)}s`
+    ? `${n} checkpoints · ${timelineLength().toFixed(1)}s` + (storageWarned ? ' · not saved for next time' : '')
     : (n === 1 ? 'Save one more to make a path.' : 'Set the tesseract how you like, then save it.');
 }
 
