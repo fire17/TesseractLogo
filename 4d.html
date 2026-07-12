@@ -139,6 +139,24 @@
     align-items: center; gap: 7px; color: #ff9a9a; font-size: 11px;
   }
   #rec.on { display: flex; }
+
+  .tog { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; color: var(--muted); font-size: 11px; }
+  .tog input { width: auto; accent-color: var(--gold); }
+  #pace-wrap { margin: 0 0 9px; }
+
+  /* the roll dial — an HTML overlay, so it is never part of an exported frame */
+  #dial {
+    position: absolute; right: 22px; top: 54px; width: 78px; height: 78px;
+    cursor: grab; touch-action: none; user-select: none;
+  }
+  #dial:active { cursor: grabbing; }
+  #dial svg { width: 100%; height: 100%; overflow: visible; }
+  #dial-knob { transition: r .15s; }
+  #dial:hover #dial-knob { r: 8; }
+  #dial-v {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none;
+  }
   #rec i { width: 9px; height: 9px; border-radius: 50%; background: #ff5f5f; animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: .25; } }
 
@@ -215,10 +233,17 @@
   <p class="sub" style="margin:0 0 9px; font-size:10.5px">Save the state you are looking at — angles, fold, net, colour, zoom — then travel between the saves.</p>
   <button class="act primary" id="ck-save">Save this state</button>
   <div id="keys-list"></div>
-  <p id="tl-info" class="sub" style="margin:10px 0 6px; font-size:10.5px"></p>
-  <label style="display:flex;align-items:center;gap:7px;margin:0 0 8px">
-    <input type="checkbox" id="tl-loop" style="width:auto;accent-color:var(--gold)"> loop the path
-  </label>
+  <p id="tl-info" class="sub" style="margin:10px 0 8px; font-size:10.5px"></p>
+
+  <label class="tog"><input type="checkbox" id="tl-auto" checked> even speed — time each leg by distance</label>
+  <div id="pace-wrap">
+    <label>pace <span class="v" id="v-pace">1.3</span></label>
+    <input type="range" id="tl-pace" min="0.2" max="4" step="0.05" value="1.3">
+  </div>
+  <label class="tog"><input type="checkbox" id="tl-shuffle"> shuffle — pick the next state at random</label>
+  <label class="tog"><input type="checkbox" id="tl-roll"> random camera roll on every leg</label>
+  <label class="tog"><input type="checkbox" id="tl-loop"> loop the path</label>
+
   <button class="act" id="tl-play" disabled><span id="tl-label">Play path</span> <span id="tl-pos"></span></button>
   <button class="act" id="tl-export" disabled>Export clip</button>
   <button class="act" id="ck-clear">Clear checkpoints</button>
@@ -241,6 +266,15 @@
   </div>
   <div id="flash" role="status" aria-live="polite"></div>
   <div id="rec"><i></i> recording the path</div>
+  <div id="dial" title="Drag to roll the camera about its own axis">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="42" fill="none" stroke="#1c2438" stroke-width="7"/>
+      <circle id="dial-arc" cx="50" cy="50" r="42" fill="none" stroke="#e8b84a" stroke-width="7"
+              stroke-linecap="round" transform="rotate(-90 50 50)"/>
+      <circle id="dial-knob" cx="50" cy="8" r="6.5" fill="#f5d67b"/>
+    </svg>
+    <span id="dial-v">0°</span>
+  </div>
 </div>
 
 <script>
@@ -360,6 +394,7 @@ const S = {
   anchor: -1,                   // which cell holds still
   proj: 'petrie', projBlend: 1, // projBlend is what draws; proj is what the select says
   lw: 2.4, hue: 1, zoom: 1,
+  roll: 0,                      // camera roll: the view turning about its own axis
   playing: !reduced, move: 'petrie', t: 0,
 };
 
@@ -408,6 +443,7 @@ function draw() {
   // gets magnified enough to run off the canvas otherwise. Folded, the close camera stays,
   // because that foreshortening is what sells the cube-within-a-cube.
   const cam3 = 4.2 + 1.7 * S.unfold;
+  const rc = Math.cos(S.roll), rs = Math.sin(S.roll);
 
   for (let ci = 0; ci < CELLS.length; ci++) {
     const cell = CELLS[ci];
@@ -418,17 +454,19 @@ function draw() {
       const k4 = 3.4 / (3.4 - p[3]);                       // 4D → 3D (this one makes the cube-in-cube)
       const [X, Y, Z] = [p[0] * k4, p[1] * k4, p[2] * k4];
       const k3 = cam3 / (cam3 - Z);                        // 3D → 2D
-      const px = cx + X * k3 * R / 2.1, py = cy - Y * k3 * R / 2.1;
-      if (pb === 0) return { x: px, y: py, w: p[3], depth: Z };
-      const ex = p.reduce((s, c, i) => s + c * PET[i][0], 0);
-      const ey = p.reduce((s, c, i) => s + c * PET[i][1], 0);
-      const qx = cx + ex * R / 2.62, qy = cy - ey * R / 2.62;
-      return {
-        x: px + (qx - px) * pb,
-        y: py + (qy - py) * pb,
-        w: p[3],
-        depth: Z * (1 - pb),                               // Petrie is orthographic: no depth
-      };
+      let X2 = cx + X * k3 * R / 2.1, Y2 = cy - Y * k3 * R / 2.1;
+      if (pb > 0) {                                        // blend toward the flat Petrie shadow
+        const ex = p.reduce((s, c, i) => s + c * PET[i][0], 0);
+        const ey = p.reduce((s, c, i) => s + c * PET[i][1], 0);
+        X2 += (cx + ex * R / 2.62 - X2) * pb;
+        Y2 += (cy - ey * R / 2.62 - Y2) * pb;
+      }
+      if (rs) {                                            // camera roll: the view turns about its own axis
+        const dx = X2 - cx, dy = Y2 - cy;                  // screen y grows downward, so +roll reads clockwise
+        X2 = cx + dx * rc - dy * rs;
+        Y2 = cy + dx * rs + dy * rc;
+      }
+      return { x: X2, y: Y2, w: p[3], depth: Z * (1 - pb) };  // Petrie is orthographic: no depth
     });
     for (const [a, b] of cell.edges) {
       const p = pts[a], q = pts[b];
@@ -469,11 +507,44 @@ function capture() {
   return {
     ang: S.ang.map(norm),              // normalised, so a save never carries hidden extra turns
     unfold: S.unfold, carrier: S.carrier, csign: S.csign, anchor: S.anchor,
-    projBlend: S.projBlend, lw: S.lw, hue: S.hue, zoom: S.zoom,
+    projBlend: S.projBlend, lw: S.lw, hue: S.hue, zoom: S.zoom, roll: S.roll,
   };
 }
 const lerp = (a, b, u) => a + (b - a) * u;
 const easeInOut = u => u < 0.5 ? 4*u*u*u : 1 - Math.pow(-2*u + 2, 3) / 2;
+
+// Cubic Hermite with the END VELOCITIES named. This is what kills the bounce: with
+// v0 = v1 = 1 it reduces exactly to u (dead-linear, so a path of many checkpoints flows
+// through them at one unbroken speed instead of braking into every single one). Only a
+// state you actually dwell on has to come to rest, and there v = 0 gives the settle.
+//   v0=1,v1=1 → linear     v0=1,v1=0 → ease-out     v0=0,v1=1 → ease-in     v0=0,v1=0 → ease-in-out
+function hermite(u, v0, v1) {
+  const u2 = u * u, u3 = u2 * u;
+  return (3*u2 - 2*u3) + v0 * (u3 - 2*u2 + u) + v1 * (u3 - u2);
+}
+
+const shortest = (a, b) => {
+  let d = norm(b) - norm(a);
+  if (d > Math.PI) d -= TAU;
+  if (d < -Math.PI) d += TAU;
+  return d;
+};
+
+// How far apart are two states? Duration = distance ÷ pace, so a big change takes
+// proportionally longer and the apparent speed is the same everywhere on the path.
+// Everything is converted into radian-equivalents so the terms are commensurable.
+const HALF = Math.PI / 2;                       // a full fold sweeps the hinge through 90°
+function distance(A, B) {
+  let d = 0;
+  for (let i = 0; i < 6; i++) d += Math.abs(shortest(A.ang[i], B.ang[i]));
+  d += discreteDiffer(A, B)
+    ? (A.unfold + B.unfold) * HALF              // it must close, re-anchor, then reopen
+    : Math.abs(B.unfold - A.unfold) * HALF;
+  d += Math.abs(B.projBlend - A.projBlend) * 1.2;
+  d += Math.abs(Math.log((B.zoom || 1) / (A.zoom || 1))) * 1.5;
+  d += Math.abs((B.roll || 0) - (A.roll || 0));
+  return d;
+}
 
 // The eighth cell's arm and the anchored cell are discrete: you cannot interpolate them,
 // and physically you cannot re-anchor a solid while it is lying open. So when a segment
@@ -481,18 +552,14 @@ const easeInOut = u => u < 0.5 ? 4*u*u*u : 1 - Math.pow(-2*u + 2, 3) / 2;
 const discreteDiffer = (a, b) =>
   a.carrier !== b.carrier || a.csign !== b.csign || a.anchor !== b.anchor;
 
-function tweenTo(A, B, u) {
-  const e = easeInOut(u);
-  for (let i = 0; i < 6; i++) {
-    let d = norm(B.ang[i]) - norm(A.ang[i]);               // shortest way round, never the long one
-    if (d > Math.PI) d -= TAU;
-    if (d < -Math.PI) d += TAU;
-    S.ang[i] = A.ang[i] + d * e;
-  }
+function tweenTo(A, B, u, v0 = 0, v1 = 0) {
+  const e = hermite(u, v0, v1);
+  for (let i = 0; i < 6; i++) S.ang[i] = A.ang[i] + shortest(A.ang[i], B.ang[i]) * e;
   S.projBlend = lerp(A.projBlend, B.projBlend, e);
   S.lw = lerp(A.lw, B.lw, e);
   S.hue = lerp(A.hue, B.hue, e);
   S.zoom = lerp(A.zoom, B.zoom, e);
+  S.roll = lerp(A.roll || 0, B.roll || 0, e);              // roll is directional: no shortest-path
 
   if (discreteDiffer(A, B)) {
     if (e < 0.5) {                                         // close it, keeping A's net
@@ -509,39 +576,108 @@ function tweenTo(A, B, u) {
   S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
 }
 
-function timelineLength() {
-  return KEYS.slice(1).reduce((s, k) => s + k.dur, 0);
+// Duration of one leg: auto = distance ÷ pace (so the speed is the same everywhere),
+// otherwise whatever the user typed on that checkpoint.
+function legDur(fromState, toState, toKey) {
+  if (!AUTO.on) return Math.max(0.05, toKey.dur);
+  return Math.min(60, Math.max(0.3, distance(fromState, toState) / AUTO.pace));
+}
+function timelineLength() {                                // an honest estimate of one pass
+  let total = KEYS.reduce((s, k) => s + (k.hold || 0), 0);
+  for (let i = 1; i < KEYS.length; i++) total += legDur(KEYS[i-1].state, KEYS[i].state, KEYS[i]);
+  return total;
 }
 
-function startTimeline({ loop = false, onEnd = null } = {}) {
+const AUTO = { on: true, pace: 1.3, shuffle: false, randomRoll: false };
+
+// A random roll target, always turning clockwise, between an eighth of a turn and a full one.
+const randomRollFrom = roll => roll + (0.125 + Math.random() * 0.875) * TAU;
+
+function beginLeg(from, to) {
+  const fromState = { ...structuredClone(KEYS[from].state), roll: S.roll };   // start from where we are
+  const toState = structuredClone(KEYS[to].state);
+  if (AUTO.randomRoll) toState.roll = randomRollFrom(S.roll);
+  // Velocity at each end: rest if we dwell there (or if the path stops there), else cruise —
+  // this is what makes a multi-checkpoint path flow at one speed instead of bouncing.
+  const restAtStart = (KEYS[from].hold || 0) > 0 || tl.legsDone === 0;
+  const lastLeg = !tl.loop && !AUTO.shuffle && to === KEYS.length - 1;
+  const restAtEnd = (KEYS[to].hold || 0) > 0 || lastLeg ||
+                    (tl.maxLegs && tl.legsDone + 1 >= tl.maxLegs);
+  Object.assign(tl, {
+    from, to, fromState, toState, t: 0,
+    dur: legDur(fromState, toState, KEYS[to]),
+    v0: restAtStart ? 0 : 1,
+    v1: restAtEnd ? 0 : 1,
+    holding: 0,
+  });
+  $('tl-pos').textContent = `${to + 1}/${KEYS.length}`;
+}
+
+function nextIndex(cur) {
+  if (AUTO.shuffle) {
+    if (KEYS.length < 2) return cur;
+    let n; do { n = Math.floor(Math.random() * KEYS.length); } while (n === cur);
+    return n;
+  }
+  return cur + 1;
+}
+
+function startTimeline({ loop = false, maxLegs = 0, onEnd = null } = {}) {
   if (KEYS.length < 2) return false;
   S.playing = false; S.breathe = false; S.move = '';
-  tl = { t: 0, loop, onEnd };
+  tl = { loop, maxLegs, onEnd, legsDone: 0 };
+  Object.assign(S, structuredClone(KEYS[0].state));
+  beginLeg(0, nextIndex(0));
   syncUI();
   return true;
 }
 function stopTimeline() { const cb = tl?.onEnd; tl = null; syncUI(); cb?.(); }
 
 function stepTimeline(dt) {
-  tl.t += dt;
-  let t = tl.t, i = 1;
-  while (i < KEYS.length && t > KEYS[i].dur) { t -= KEYS[i].dur; i++; }
-  if (i >= KEYS.length) {
-    if (tl.loop) { tl.t = 0; return; }
-    Object.assign(S, structuredClone(KEYS[KEYS.length - 1].state));   // land exactly on the last save
-    S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
-    stopTimeline();
+  if (tl.holding > 0) {                                     // dwell on a scene, then move on
+    tl.holding -= dt;
+    if (tl.holding <= 0 && tl.ending) stopTimeline();       // the last scene's dwell is the end
     return;
   }
-  tweenTo(KEYS[i - 1].state, KEYS[i].state, KEYS[i].dur ? t / KEYS[i].dur : 1);
-  $('tl-pos').textContent = `${i}/${KEYS.length - 1}`;
+  if (tl.ending) { stopTimeline(); return; }
+
+  // Carry any leftover time into the next leg instead of clamping u at 1. Clamping wastes a
+  // frame standing still at every checkpoint — a one-frame stall at each one, which is exactly
+  // the stutter this mode exists to remove.
+  let budget = dt;
+  while (budget > 0 && tl && !tl.holding && !tl.ending) {
+    const left = tl.dur - tl.t;
+    if (budget < left || tl.dur <= 0) {
+      tl.t += budget;
+      budget = 0;
+      tweenTo(tl.fromState, tl.toState, tl.dur > 0 ? tl.t / tl.dur : 1, tl.v0, tl.v1);
+      break;
+    }
+    budget -= left;                                         // this leg is finished; spend the rest on the next
+    Object.assign(S, structuredClone(tl.toState));          // land exactly on the save
+    tl.legsDone++;
+    tl.holding = KEYS[tl.to].hold || 0;
+
+    const done = (tl.maxLegs && tl.legsDone >= tl.maxLegs) ||
+                 (!tl.loop && !AUTO.shuffle && tl.to >= KEYS.length - 1) ||
+                 (!tl.loop && AUTO.shuffle && tl.legsDone >= KEYS.length - 1);
+    if (done) { tl.ending = true; break; }                  // let the final dwell run, then stop
+
+    let nxt = nextIndex(tl.to);
+    if (nxt >= KEYS.length) nxt = 0;                        // looping wraps to the start
+    const hold = tl.holding;
+    beginLeg(tl.to, nxt);
+    tl.holding = hold;                                      // beginLeg resets it; keep the dwell
+  }
+  S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
 }
 
-let last = performance.now();
+let last = performance.now(), shownRoll = null;
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05); last = now;
   if (tl) {
     stepTimeline(dt);
+    if (S.roll !== shownRoll) { shownRoll = S.roll; syncDial(); }   // the dial follows the animation
   } else if (S.playing) {
     S.t += dt;
     for (let i = 0; i < 6; i++) S.ang[i] += S.spin[i] * dt;
@@ -577,6 +713,7 @@ function apply(m) {
   S.proj = m.proj;
   S.projBlend = m.proj === 'petrie' ? 1 : 0;
   S.ang = [0,0,0,0,0,0];
+  S.roll = 0;
   S.t = 0;
   if (m.id === 'petrie') S.playing = false;
   else if (!reduced) S.playing = true;
@@ -652,7 +789,7 @@ function thumbnail() {
 
 function saveCheckpoint() {
   draw();                                                   // thumbnail must show this exact state
-  KEYS.push({ id: Date.now() + Math.random(), state: capture(), thumb: thumbnail(), dur: 2.0 });
+  KEYS.push({ id: Date.now() + Math.random(), state: capture(), thumb: thumbnail(), dur: 2.0, hold: 0 });
   renderKeys();
   // No cap on how long an animation can be. Storage is the only real ceiling, and if we
   // hit it the checkpoints still work for this session — only saving them for the next
@@ -686,10 +823,13 @@ function renderKeys() {
   KEYS.forEach((k, i) => {
     const row = document.createElement('div');
     row.className = 'ck';
+    const travel = (i && !AUTO.on)
+      ? `<label class="ck-d">take <input class="d" type="number" min="0.2" max="60" step="0.1" aria-label="Seconds to reach checkpoint ${i + 1}">s</label>`
+      : (i ? `<span class="ck-s">auto</span>` : `<span class="ck-s">start</span>`);
     row.innerHTML =
       `<img alt="Checkpoint ${i + 1}"><div class="ck-b">` +
-      `<b>${i + 1}</b>` +
-      (i ? `<label class="ck-d">${''}<input type="number" min="0.2" max="20" step="0.1" aria-label="Seconds to reach checkpoint ${i + 1}"> s</label>` : `<span class="ck-s">start</span>`) +
+      `<b>${i + 1}</b>${travel}` +
+      `<label class="ck-d">stay <input class="h" type="number" min="0" max="60" step="0.1" aria-label="Seconds to stay on checkpoint ${i + 1}">s</label>` +
       `</div><button class="ck-x" aria-label="Delete checkpoint ${i + 1}">×</button>`;
     row.querySelector('img').src = k.thumb;
     row.querySelector('img').onclick = () => {              // click a thumb to jump to that state
@@ -699,11 +839,14 @@ function renderKeys() {
       S.playing = false; S.breathe = false; S.move = '';
       syncUI();
     };
-    const dur = row.querySelector('input');
+    const dur = row.querySelector('input.d');
     if (dur) {
       dur.value = k.dur;
       dur.oninput = e => { k.dur = Math.max(0.2, +e.target.value || 0.2); persist(); updateTlInfo(); };
     }
+    const hold = row.querySelector('input.h');
+    hold.value = k.hold || 0;
+    hold.oninput = e => { k.hold = Math.max(0, +e.target.value || 0); persist(); updateTlInfo(); };
     row.querySelector('.ck-x').onclick = () => {
       KEYS.splice(i, 1); persist(); renderKeys();
     };
@@ -717,7 +860,9 @@ function updateTlInfo() {
   $('tl-play').disabled = !ok;
   $('tl-export').disabled = !ok;
   $('tl-info').textContent = ok
-    ? `${n} checkpoints · ${timelineLength().toFixed(1)}s` + (storageWarned ? ' · not saved for next time' : '')
+    ? `${n} checkpoints · ${timelineLength().toFixed(1)}s` +
+      (AUTO.shuffle ? ' · random order' : '') +
+      (storageWarned ? ' · not saved for next time' : '')
     : (n === 1 ? 'Save one more to make a path.' : 'Set the tesseract how you like, then save it.');
 }
 
@@ -730,6 +875,40 @@ function flash(msg) {
   flashT = setTimeout(() => el.classList.remove('on'), 1800);
 }
 
+// --- the roll dial: drag it round to turn the camera about its own axis ---------
+const dial = $('dial');
+function syncDial() {
+  const r = S.roll;
+  const deg = ((r * 180 / Math.PI) % 360 + 360) % 360;
+  const C = 2 * Math.PI * 42;
+  $('dial-arc').setAttribute('stroke-dasharray', `${C * deg / 360} ${C}`);
+  $('dial-knob').setAttribute('cx', 50 + 42 * Math.sin(r));
+  $('dial-knob').setAttribute('cy', 50 - 42 * Math.cos(r));
+  $('dial-v').textContent = `${Math.round(deg)}°`;
+}
+function setRoll(r) { S.roll = r; syncDial(); }
+const dialAngle = e => {
+  const b = dial.getBoundingClientRect();
+  return Math.atan2(e.clientX - (b.left + b.width / 2), (b.top + b.height / 2) - e.clientY);
+};
+let dialPrev = null;
+dial.addEventListener('pointerdown', e => {
+  dial.setPointerCapture(e.pointerId);
+  dialPrev = dialAngle(e);
+});
+dial.addEventListener('pointermove', e => {
+  if (dialPrev === null) return;
+  const a = dialAngle(e);
+  let d = a - dialPrev;                          // unwrap, so winding past 360° keeps accumulating
+  if (d > Math.PI) d -= TAU;
+  if (d < -Math.PI) d += TAU;
+  dialPrev = a;
+  tl = null; S.move = '';
+  setRoll(S.roll + d);
+});
+dial.addEventListener('pointerup', () => { dialPrev = null; });
+dial.addEventListener('pointercancel', () => { dialPrev = null; });
+
 $('ck-save').onclick = saveCheckpoint;
 $('ck-clear').onclick = () => {
   if (!KEYS.length) return;
@@ -739,6 +918,10 @@ $('tl-play').onclick = () => {
   if (tl) { stopTimeline(); return; }
   startTimeline({ loop: $('tl-loop').checked });
 };
+$('tl-auto').onchange = e => { AUTO.on = e.target.checked; $('pace-wrap').style.display = AUTO.on ? '' : 'none'; renderKeys(); };
+$('tl-pace').oninput = e => { AUTO.pace = +e.target.value; $('v-pace').textContent = AUTO.pace.toFixed(2); updateTlInfo(); };
+$('tl-shuffle').onchange = e => { AUTO.shuffle = e.target.checked; updateTlInfo(); };
+$('tl-roll').onchange = e => { AUTO.randomRoll = e.target.checked; };
 
 // --- export: record the canvas while the timeline plays ------------------------
 function pickMime() {
@@ -773,9 +956,11 @@ $('tl-export').onclick = async () => {
 
   Object.assign(S, structuredClone(KEYS[0].state));   // always start the recording on checkpoint 1
   S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
+  syncDial();
   draw();
   rec.start();
-  startTimeline({ loop: false, onEnd: () => setTimeout(() => rec.stop(), 120) });
+  // Record exactly one pass, even when loop or shuffle is on — an export has to end.
+  startTimeline({ loop: false, maxLegs: KEYS.length - 1, onEnd: () => setTimeout(() => rec.stop(), 120) });
 };
 
 // drag: 3D by default, through w with shift — the fourth axis is one key away
@@ -807,5 +992,6 @@ resize();
 apply(MOVES[reduced ? 0 : 1]);   // reduced motion lands on the still frame
 restore();
 renderKeys();
+syncDial();
 requestAnimationFrame(frame);
 </script>

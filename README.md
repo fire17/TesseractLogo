@@ -60,12 +60,15 @@ Drag to turn it in 3D; hold **shift** and drag to turn it *through* `w`. Six rot
 
 ### Checkpoints — make your own animation
 
-Set the tesseract however you like, press **Save this state** (or `s`), and it becomes a checkpoint with a thumbnail. Save a few, give each leg a duration, then **Play path** to travel between them — and **Export clip** to record that path to a video file. Checkpoints survive a reload.
+Set the tesseract however you like, press **Save this state** (or `s`), and it becomes a checkpoint with a thumbnail. Save a few, then **Play path** to travel between them — and **Export clip** to record that path to a video file. Checkpoints survive a reload, and there is no limit on how many you keep.
+
+**Even speed** (on by default) times each leg from the *distance* between its two states, so a big change takes proportionally longer and the motion runs at one unbroken pace — it never brakes into a checkpoint just because one is there. Give a checkpoint a **stay** time and it becomes a scene: the motion eases to rest, dwells for as long as you asked, and eases back out. **Shuffle** picks the next state at random instead of in order. The **dial** in the corner rolls the camera about its own axis, and **random camera roll** gives every leg a fresh clockwise turn.
 
 A checkpoint stores everything you can adjust: all six plane angles, the fold, the net, the projection, colour, line weight and zoom. Three things about the travel are deliberate, because the naive version is wrong:
 
 | | |
 |---|---|
+| **One speed, no bounce** | Legs are timed by distance and interpolated with a cubic Hermite whose endpoint velocities are named: cruise where the path flows through a checkpoint, rest only where it dwells. With both ends cruising the curve reduces to exactly `u` — dead linear — so a long path glides through its keyframes instead of braking into every one. |
 | **Angles take the short way round** | A save at 350° travelling to 10° turns forward 20°, not backward 340°. |
 | **Projections morph, they don't cut** | Perspective and Petrie are blended per-vertex, so the solid melts into its flat shadow instead of snapping. |
 | **Re-anchoring folds the solid shut first** | Which cell anchors, and which arm carries the eighth cell, are *discrete* — there is no halfway. And physically you cannot re-anchor a solid while it lies open. So a leg that changes them closes the net, switches, and opens the new one. The fold **is** the transition. |
