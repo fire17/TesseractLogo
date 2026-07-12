@@ -79,6 +79,11 @@
   #stage { position: relative; min-width: 0; overflow: hidden; }
   canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
   canvas:active { cursor: grabbing; }
+  /* The line art is drawn in 2D; when a shader is on, that canvas becomes the texture and
+     this one shows the result. Same box, so pointer handling is unaffected either way. */
+  #fx { position: absolute; inset: 0; }
+  #fx[hidden] { display: none; }
+  body.shaded #c { visibility: hidden; }
 
   #legend {
     position: absolute; left: 22px; bottom: 20px; pointer-events: none;
@@ -289,6 +294,7 @@
 
 <div id="stage">
   <canvas id="c"></canvas>
+  <canvas id="fx" hidden></canvas>
   <div id="topbar">
     <a href="index.html">Logo lab</a>
     <a href="https://github.com/fire17/TesseractLogo" target="_blank" rel="noopener">GitHub</a>
@@ -802,6 +808,66 @@ function stepTimeline(dt) {
   S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
 }
 
+// ---------------------------------------------------------------------------
+// The shader stack. The 2D canvas above is the source texture; everything below is a
+// full-screen pass over it in WebGL2. Passes compose, so several can be on at once.
+// All of it is written here from the published technique, not copied from anyone's source.
+// ---------------------------------------------------------------------------
+const glc = $('fx');
+let GL = null;                                  // lazily built the first time a shader is on
+
+const VERT = `#version 300 es
+out vec2 uv;
+void main(){                                     // one big triangle: no vertex buffer needed
+  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  uv = p;
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+const FRAG_HEAD = `#version 300 es
+precision highp float;
+in vec2 uv;
+out vec4 frag;
+uniform sampler2D src;      // the line art (or the previous pass)
+uniform sampler2D prev;     // last frame, for feedback
+uniform vec2 res;
+uniform float time;
+uniform float amt;          // this pass's intensity
+uniform float p1, p2, p3;   // per-pass dials
+`;
+
+function compile(gl, src, type) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(s), src);
+    throw new Error('shader compile failed');
+  }
+  return s;
+}
+function program(gl, frag) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl, VERT, gl.VERTEX_SHADER));
+  gl.attachShader(p, compile(gl, FRAG_HEAD + frag, gl.FRAGMENT_SHADER));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+function makeTarget(gl, w, h) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  return { tex, fbo, w, h };
+}
+
 let last = performance.now(), shownRoll = null;
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05); last = now;
@@ -1113,10 +1179,18 @@ $('ck-clear').onclick = () => {
 };
 
 // --- checkpoints as a file: the only way off this browser -----------------------
+// A scene file is everything needed to reproduce exactly what you are watching: the
+// checkpoints AND how they are played AND how they are drawn. Anything less and the file
+// would not replay the same.
 $('ck-json').onclick = () => {
   const doc = {
     app: 'tesseract-4d-lab',
-    version: 1,
+    version: 2,
+    playback: {
+      auto: AUTO.on, pace: AUTO.pace, shuffle: AUTO.shuffle, randomRoll: AUTO.randomRoll,
+      loop: $('tl-loop').checked,
+    },
+    view: { lw: S.lw, hue: S.hue },
     checkpoints: KEYS.map(k => ({ state: k.state, dur: k.dur, hold: k.hold || 0, thumb: k.thumb })),
   };
   const a = document.createElement('a');
@@ -1143,6 +1217,14 @@ function cleanState(s = {}) {
     projBlend: clamp(s.projBlend, 0, 1, 0),
     zoom:      clamp(s.zoom, 0.35, 2.6, 1),
     roll:      Number.isFinite(+s.roll) ? +s.roll : 0,
+    fxNest:        clamp(s.fxNest, 0, 8, 0),
+    fxNestRatio:   clamp(s.fxNestRatio, 0.3, 0.95, 0.62),
+    fxNestTwist:   clamp(s.fxNestTwist, -1, 1, 0.22),
+    fxBloom:       clamp(s.fxBloom, 0, 1, 0),
+    fxBloomSize:   clamp(s.fxBloomSize, 0.05, 0.6, 0.3),
+    fxBloomSpread: clamp(s.fxBloomSpread, 0.6, 2, 1.15),
+    fxKal:         clamp(s.fxKal, 1, 12, 1),
+    fxKalMirror:   !!s.fxKalMirror,
   };
 }
 
@@ -1164,6 +1246,29 @@ $('ck-file').onchange = async e => {
     return;
   }
   const before = KEYS.length;
+
+  // A v2 file carries how it was played and drawn, not just the states. Restore that too,
+  // or the file would not replay as the scene it captured.
+  if (raw?.playback) {
+    const pb = raw.playback;
+    AUTO.on = pb.auto !== false;
+    AUTO.pace = clamp(pb.pace, 0.2, 4, 1.3);
+    AUTO.shuffle = !!pb.shuffle;
+    AUTO.randomRoll = !!pb.randomRoll;
+    $('tl-loop').checked = !!pb.loop;
+    $('tl-auto').checked = AUTO.on;
+    $('tl-pace').value = AUTO.pace;
+    $('v-pace').textContent = AUTO.pace.toFixed(2);
+    $('tl-shuffle').checked = AUTO.shuffle;
+    $('tl-roll').checked = AUTO.randomRoll;
+    $('pace-wrap').style.display = AUTO.on ? '' : 'none';
+  }
+  if (raw?.view) {
+    S.lw = clamp(raw.view.lw, 0.5, 8, S.lw);
+    S.hue = clamp(raw.view.hue, 0, 1, S.hue);
+    $('lw').value = S.lw;
+    $('hue').value = S.hue * 100;
+  }
   for (const item of list) {
     const state = cleanState(item?.state ?? item);            // accept bare states too
     const thumb = typeof item?.thumb === 'string' && item.thumb.startsWith('data:image/')
