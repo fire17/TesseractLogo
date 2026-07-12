@@ -7,6 +7,7 @@
 [![generator](https://img.shields.io/badge/generator-python%20stdlib%20only-3776ab)](tesseract.py)
 [![playground](https://img.shields.io/badge/playground-zero%20dependencies-2ea44f)](index.html)
 [![4D lab](https://img.shields.io/badge/4D%20lab-6%20rotation%20planes%20%C2%B7%208%20cells-8b6bf0)](https://tesseract.akeyo.io/4d.html)
+[![checkpoints](https://img.shields.io/badge/checkpoints-keyframe%20%2B%20export%20video-3fd0e0)](https://tesseract.akeyo.io/4d.html)
 [![live app](https://img.shields.io/badge/live%20app-github%20pages-8a2be2)](https://tesseract.akeyo.io/)
 [![stars](https://img.shields.io/github/stars/fire17/TesseractLogo?style=social)](https://github.com/fire17/TesseractLogo/stargazers)
 
@@ -56,6 +57,20 @@ rsvg-convert -w 4000 -h 4000 tesseract-outlined.svg -o tesseract-4k.png
 Watch the colours in the unfolding clips: as the solid opens, every hue converges. That isn't a stylistic fade — a finished net lies flat in a single `w`-slice, so the fourth coordinate really has gone.
 
 Drag to turn it in 3D; hold **shift** and drag to turn it *through* `w`. Six rotation planes, a fold slider, six choices of which arm the eighth cell rides out on, and a **Petrie** stop that freezes the whole thing back into the logo at the top of this page.
+
+### Checkpoints — make your own animation
+
+Set the tesseract however you like, press **Save this state** (or `s`), and it becomes a checkpoint with a thumbnail. Save a few, give each leg a duration, then **Play path** to travel between them — and **Export clip** to record that path to a video file. Checkpoints survive a reload.
+
+A checkpoint stores everything you can adjust: all six plane angles, the fold, the net, the projection, colour, line weight and zoom. Three things about the travel are deliberate, because the naive version is wrong:
+
+| | |
+|---|---|
+| **Angles take the short way round** | A save at 350° travelling to 10° turns forward 20°, not backward 340°. |
+| **Projections morph, they don't cut** | Perspective and Petrie are blended per-vertex, so the solid melts into its flat shadow instead of snapping. |
+| **Re-anchoring folds the solid shut first** | Which cell anchors, and which arm carries the eighth cell, are *discrete* — there is no halfway. And physically you cannot re-anchor a solid while it lies open. So a leg that changes them closes the net, switches, and opens the new one. The fold **is** the transition. |
+
+Export uses the browser's own recorder on the live canvas (MP4 where supported, WebM otherwise) — no server, no upload; the clip is rendered on your machine from the same code you are watching.
 
 ## 🎨 Gallery — 8 variants
 
@@ -156,6 +171,8 @@ flowchart LR
 
 - First "inverted" pass used literal RGB negation on the gray-era renders — mid-gray inverts to nearly the same mid-gray, so the result barely changed. Superseded by regenerating pure black/white from vector.
 - The original raster couldn't be sharpened by upscaling (soft shadows baked in at 1000px) — that failure is *why* the math reconstruction exists.
+- The checkpoint panel rendered as mojibake (`â€"` for `—`) the moment it was served over plain HTTP: `4d.html` had no `<meta charset="utf-8">`, so a server that sends no charset gets latin-1. Caught by screenshotting the real served page rather than the local file.
+- The Play button destroyed its own child counter — `textContent = ...` wiped the `<span>`, and the next line's `appendChild(null)` threw during init, silently killing checkpoint restore-on-load. The reload test caught it; the eye never would have.
 - The motion lab first shipped an "unfold along x / y / z" control. It rendered as flat plates, and the render was *right*: unfolding about `x` lands the net in the `(y, z, w)` hyperplane, so you are seeing a 3D object edge-on through the axis you can't look down. The honest fix was to delete the fake choice and expose the real one — which arm the eighth cell rides out on.
 
 ## 🛡️ Safety & undo

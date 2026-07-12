@@ -1,5 +1,7 @@
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tesseract — 4D Motion Lab</title>
+<meta name="description" content="A tesseract turning through the fourth dimension: six rotation planes, true cell unfolding into the Dalí cross, and hue that encodes the w axis.">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="alternate icon" type="image/png" href="assets/favicon.png">
 <style>
@@ -93,6 +95,48 @@
   #topbar a { color: var(--muted); text-decoration: none; border-bottom: 1px solid transparent; }
   #topbar a:hover { color: var(--gold); border-bottom-color: var(--gold); }
 
+  /* checkpoints */
+  #keys-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .ck {
+    display: flex; align-items: center; gap: 9px;
+    border: 1px solid var(--edge); border-radius: 7px; padding: 6px; background: #10162550;
+  }
+  .ck img {
+    width: 66px; height: 46px; border-radius: 4px; cursor: pointer; display: block;
+    border: 1px solid var(--edge); object-fit: cover;
+    transition: border-color .15s, transform .15s cubic-bezier(.22,1,.36,1);
+  }
+  .ck img:hover { border-color: var(--gold); transform: scale(1.04); }
+  .ck-b { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .ck-b b { font-family: var(--serif); font-size: 15px; font-weight: 400; color: var(--gold-soft); }
+  .ck-s { color: var(--muted); font-size: 10px; }
+  .ck-d { color: var(--muted); font-size: 10px; margin: 0; }
+  .ck-d input {
+    width: 44px; background: #131a2b; color: var(--text); border: 1px solid var(--edge);
+    border-radius: 4px; padding: 2px 4px; font-family: var(--mono); font-size: 10.5px;
+  }
+  .ck-x {
+    background: none; border: none; color: #5c6880; cursor: pointer;
+    font-size: 17px; line-height: 1; padding: 2px 5px; border-radius: 4px;
+  }
+  .ck-x:hover { color: #ff8080; background: #2a1620; }
+  #tl-pos { color: var(--muted); font-weight: 400; }
+
+  #flash {
+    position: absolute; left: 50%; top: 22px; transform: translate(-50%, -12px);
+    background: #131a2bee; border: 1px solid var(--edge); color: var(--text);
+    padding: 7px 14px; border-radius: 7px; font-size: 11.5px; pointer-events: none;
+    opacity: 0; transition: opacity .25s, transform .25s cubic-bezier(.22,1,.36,1);
+  }
+  #flash.on { opacity: 1; transform: translate(-50%, 0); }
+  #rec {
+    position: absolute; right: 22px; bottom: 20px; display: none;
+    align-items: center; gap: 7px; color: #ff9a9a; font-size: 11px;
+  }
+  #rec.on { display: flex; }
+  #rec i { width: 9px; height: 9px; border-radius: 50%; background: #ff5f5f; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .25; } }
+
   #keys { position: absolute; left: 22px; top: 18px; color: #58637d; font-size: 10.5px; line-height: 1.7; pointer-events: none; }
   #keys kbd { font-family: var(--mono); color: var(--muted); background: #141b2c; border: 1px solid var(--edge);
     border-radius: 3px; padding: 0 4px; }
@@ -161,6 +205,18 @@
   <button class="act primary" id="play">Pause</button>
   <button class="act" id="reset">Reset to the logo</button>
   <button class="act" id="png">Save PNG</button>
+
+  <h2>Checkpoints</h2>
+  <p class="sub" style="margin:0 0 9px; font-size:10.5px">Save the state you are looking at — angles, fold, net, colour, zoom — then travel between the saves.</p>
+  <button class="act primary" id="ck-save">Save this state</button>
+  <div id="keys-list"></div>
+  <p id="tl-info" class="sub" style="margin:10px 0 6px; font-size:10.5px"></p>
+  <label style="display:flex;align-items:center;gap:7px;margin:0 0 8px">
+    <input type="checkbox" id="tl-loop" style="width:auto;accent-color:var(--gold)"> loop the path
+  </label>
+  <button class="act" id="tl-play" disabled><span id="tl-label">Play path</span> <span id="tl-pos"></span></button>
+  <button class="act" id="tl-export" disabled>Export clip</button>
+  <button class="act" id="ck-clear">Clear checkpoints</button>
 </div>
 
 <div id="stage">
@@ -171,13 +227,15 @@
   </div>
   <div id="keys">
     <kbd>drag</kbd> turn in 3D · <kbd>shift</kbd>+<kbd>drag</kbd> turn through w<br>
-    <kbd>scroll</kbd> zoom · <kbd>space</kbd> play / pause
+    <kbd>scroll</kbd> zoom · <kbd>space</kbd> play / pause · <kbd>s</kbd> save a checkpoint
   </div>
   <div id="legend">
     <div id="ramp"></div>
     w = −1 &nbsp;·&nbsp; far &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; near &nbsp;·&nbsp; w = +1
     <div id="readout"></div>
   </div>
+  <div id="flash" role="status" aria-live="polite"></div>
+  <div id="rec"><i></i> recording the path</div>
 </div>
 
 <script>
@@ -295,7 +353,8 @@ const S = {
   unfold: 0, breathe: false,
   carrier: 2, csign: 1,         // the arm the eighth cell rides out on
   anchor: -1,                   // which cell holds still
-  proj: 'petrie', lw: 2.4, hue: 1, zoom: 1,
+  proj: 'petrie', projBlend: 1, // projBlend is what draws; proj is what the select says
+  lw: 2.4, hue: 1, zoom: 1,
   playing: !reduced, move: 'petrie', t: 0,
 };
 
@@ -325,7 +384,7 @@ function draw() {
   const cx = w / 2, cy = h / 2;
   const R = Math.min(w, h) * 0.34 * S.zoom;
   const t = S.unfold * Math.PI / 2;
-  const petrie = S.proj === 'petrie';
+  const pb = S.projBlend;            // 0 = perspective, 1 = Petrie; blended, so it can morph
   const segs = [];
 
   // Unfold first, then fit: the net spans ~3× the folded cube, so normalise by the
@@ -340,20 +399,31 @@ function draw() {
     maxR = Math.max(maxR, Math.hypot(p[0]-ctr[0], p[1]-ctr[1], p[2]-ctr[2], p[3]-ctr[3]));
   }
   const fit = 1.9 / (maxR || 1);
+  // Back the 3D camera off as the solid opens: an unfolded arm swinging toward the viewer
+  // gets magnified enough to run off the canvas otherwise. Folded, the close camera stays,
+  // because that foreshortening is what sells the cube-within-a-cube.
+  const cam3 = 4.2 + 1.7 * S.unfold;
 
   for (let ci = 0; ci < CELLS.length; ci++) {
     const cell = CELLS[ci];
     const pts = cloud[ci].map(v0 => {
       const p = rotate(v0.map((x, i) => (x - ctr[i]) * fit), S.ang);
-      if (petrie) {
-        const x = p.reduce((s, c, i) => s + c * PET[i][0], 0);
-        const y = p.reduce((s, c, i) => s + c * PET[i][1], 0);
-        return { x: cx + x * R / 2.62, y: cy - y * R / 2.62, w: p[3], depth: 0 };
-      }
-      const k4 = 3.4 / (3.4 - p[3]);                       // 4D → 3D
+      // Both projections, then blended: a hard cut between them would be a jump, and
+      // the morph between "solid in perspective" and "the logo's flat shadow" is worth seeing.
+      const k4 = 3.4 / (3.4 - p[3]);                       // 4D → 3D (this one makes the cube-in-cube)
       const [X, Y, Z] = [p[0] * k4, p[1] * k4, p[2] * k4];
-      const k3 = 4.2 / (4.2 - Z);                          // 3D → 2D
-      return { x: cx + X * k3 * R / 2.1, y: cy - Y * k3 * R / 2.1, w: p[3], depth: Z };
+      const k3 = cam3 / (cam3 - Z);                        // 3D → 2D
+      const px = cx + X * k3 * R / 2.1, py = cy - Y * k3 * R / 2.1;
+      if (pb === 0) return { x: px, y: py, w: p[3], depth: Z };
+      const ex = p.reduce((s, c, i) => s + c * PET[i][0], 0);
+      const ey = p.reduce((s, c, i) => s + c * PET[i][1], 0);
+      const qx = cx + ex * R / 2.62, qy = cy - ey * R / 2.62;
+      return {
+        x: px + (qx - px) * pb,
+        y: py + (qy - py) * pb,
+        w: p[3],
+        depth: Z * (1 - pb),                               // Petrie is orthographic: no depth
+      };
     });
     for (const [a, b] of cell.edges) {
       const p = pts[a], q = pts[b];
@@ -364,10 +434,11 @@ function draw() {
   segs.sort((a, b) => a.depth - b.depth);                  // painter's: far first
   ctx.lineCap = 'round';
   for (const s of segs) {
-    const near = petrie ? 0.5 : Math.max(0, Math.min(1, (s.depth + 2.2) / 4.4));
+    const d = Math.max(0, Math.min(1, (s.depth + 2.2) / 4.4));
+    const near = d + (0.5 - d) * pb;                        // depth cueing fades out with the morph
     ctx.strokeStyle = wColor(s.w, S.hue);
-    ctx.lineWidth = S.lw * (petrie ? 1 : 0.55 + near * 0.9);
-    ctx.globalAlpha = petrie ? 1 : 0.45 + near * 0.55;
+    ctx.lineWidth = S.lw * (0.55 + near * 0.9 + pb * (1 - (0.55 + near * 0.9)));
+    ctx.globalAlpha = (0.45 + near * 0.55) + pb * (1 - (0.45 + near * 0.55));
     ctx.beginPath();
     ctx.moveTo(s.p.x, s.p.y);
     ctx.lineTo(s.q.x, s.q.y);
@@ -381,10 +452,92 @@ function draw() {
     .join('   ');
 }
 
+// ---------------------------------------------------------------------------
+// Checkpoints: save the whole adjustable state, then travel between the saves.
+// ---------------------------------------------------------------------------
+const TAU = Math.PI * 2;
+const KEYS = [];                       // [{ id, state, thumb, dur }]  dur = seconds to travel INTO it
+let tl = null;                         // active timeline, or null
+
+const norm = a => ((a % TAU) + TAU) % TAU;
+function capture() {
+  return {
+    ang: S.ang.map(norm),              // normalised, so a save never carries hidden extra turns
+    unfold: S.unfold, carrier: S.carrier, csign: S.csign, anchor: S.anchor,
+    projBlend: S.projBlend, lw: S.lw, hue: S.hue, zoom: S.zoom,
+  };
+}
+const lerp = (a, b, u) => a + (b - a) * u;
+const easeInOut = u => u < 0.5 ? 4*u*u*u : 1 - Math.pow(-2*u + 2, 3) / 2;
+
+// The eighth cell's arm and the anchored cell are discrete: you cannot interpolate them,
+// and physically you cannot re-anchor a solid while it is lying open. So when a segment
+// changes either, it folds shut, switches, and opens again — the fold is the transition.
+const discreteDiffer = (a, b) =>
+  a.carrier !== b.carrier || a.csign !== b.csign || a.anchor !== b.anchor;
+
+function tweenTo(A, B, u) {
+  const e = easeInOut(u);
+  for (let i = 0; i < 6; i++) {
+    let d = norm(B.ang[i]) - norm(A.ang[i]);               // shortest way round, never the long one
+    if (d > Math.PI) d -= TAU;
+    if (d < -Math.PI) d += TAU;
+    S.ang[i] = A.ang[i] + d * e;
+  }
+  S.projBlend = lerp(A.projBlend, B.projBlend, e);
+  S.lw = lerp(A.lw, B.lw, e);
+  S.hue = lerp(A.hue, B.hue, e);
+  S.zoom = lerp(A.zoom, B.zoom, e);
+
+  if (discreteDiffer(A, B)) {
+    if (e < 0.5) {                                         // close it, keeping A's net
+      Object.assign(S, { carrier: A.carrier, csign: A.csign, anchor: A.anchor });
+      S.unfold = lerp(A.unfold, 0, e * 2);
+    } else {                                               // re-anchor, then open B's net
+      Object.assign(S, { carrier: B.carrier, csign: B.csign, anchor: B.anchor });
+      S.unfold = lerp(0, B.unfold, (e - 0.5) * 2);
+    }
+  } else {
+    Object.assign(S, { carrier: B.carrier, csign: B.csign, anchor: B.anchor });
+    S.unfold = lerp(A.unfold, B.unfold, e);
+  }
+  S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
+}
+
+function timelineLength() {
+  return KEYS.slice(1).reduce((s, k) => s + k.dur, 0);
+}
+
+function startTimeline({ loop = false, onEnd = null } = {}) {
+  if (KEYS.length < 2) return false;
+  S.playing = false; S.breathe = false; S.move = '';
+  tl = { t: 0, loop, onEnd };
+  syncUI();
+  return true;
+}
+function stopTimeline() { const cb = tl?.onEnd; tl = null; syncUI(); cb?.(); }
+
+function stepTimeline(dt) {
+  tl.t += dt;
+  let t = tl.t, i = 1;
+  while (i < KEYS.length && t > KEYS[i].dur) { t -= KEYS[i].dur; i++; }
+  if (i >= KEYS.length) {
+    if (tl.loop) { tl.t = 0; return; }
+    Object.assign(S, structuredClone(KEYS[KEYS.length - 1].state));   // land exactly on the last save
+    S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
+    stopTimeline();
+    return;
+  }
+  tweenTo(KEYS[i - 1].state, KEYS[i].state, KEYS[i].dur ? t / KEYS[i].dur : 1);
+  $('tl-pos').textContent = `${i}/${KEYS.length - 1}`;
+}
+
 let last = performance.now();
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05); last = now;
-  if (S.playing) {
+  if (tl) {
+    stepTimeline(dt);
+  } else if (S.playing) {
     S.t += dt;
     for (let i = 0; i < 6; i++) S.ang[i] += S.spin[i] * dt;
     if (S.breathe) {
@@ -410,12 +563,14 @@ MOVES.forEach(m => {
 });
 
 function apply(m) {
+  tl = null;                                   // a movement overrides any running path
   S.move = m.id;
   S.spin = m.spin.slice();
   S.breathe = m.unfold === 'breathe';
   if (!S.breathe) S.unfold = m.unfold;
   if (m.carrier !== undefined) { S.carrier = m.carrier; S.csign = m.csign; S.anchor = m.anchor; }
   S.proj = m.proj;
+  S.projBlend = m.proj === 'petrie' ? 1 : 0;
   S.ang = [0,0,0,0,0,0];
   S.t = 0;
   if (m.id === 'petrie') S.playing = false;
@@ -424,6 +579,8 @@ function apply(m) {
 }
 
 function syncUI() {
+  $('tl-label').textContent = tl ? 'Stop path' : 'Play path';
+  if (!tl) $('tl-pos').textContent = '';
   [...moves.children].forEach((b, i) => b.setAttribute('aria-pressed', MOVES[i].id === S.move));
   ['xy','xz','yz','xw','yw','zw'].forEach((n, i) => $('r-' + n).value = Math.round(S.spin[i] * 100));
   $('unfold').value = Math.round(S.unfold * 100);
@@ -449,7 +606,17 @@ $('carrier').onchange = e => {
   S.carrier = +c; S.csign = +s; S.move = ''; syncUI();
 };
 $('anchor').onchange = e => { S.anchor = +e.target.value; S.move = ''; syncUI(); };
-$('proj').onchange = e => { S.proj = e.target.value; };
+$('proj').onchange = e => {
+  S.proj = e.target.value;
+  const to = S.proj === 'petrie' ? 1 : 0;
+  if (reduced) { S.projBlend = to; return; }
+  const from = S.projBlend, t0 = performance.now();       // morph rather than cut
+  (function step(now) {
+    const u = Math.min(1, (now - t0) / 650);
+    S.projBlend = from + (to - from) * easeInOut(u);
+    if (u < 1) requestAnimationFrame(step);
+  })(t0);
+};
 $('lw').oninput = e => { S.lw = +e.target.value; $('v-lw').textContent = S.lw.toFixed(1); };
 $('hue').oninput = e => { S.hue = +e.target.value / 100; syncUI(); };
 $('play').onclick = () => { S.playing = !S.playing; syncUI(); };
@@ -462,6 +629,136 @@ $('png').onclick = () => {
     a.click();
     URL.revokeObjectURL(a.href);
   }, 'image/png');
+};
+
+// --- checkpoints: save, list, reorder-by-delete, persist ----------------------
+const STORE = 'tesseract.checkpoints.v1';
+
+function thumbnail() {
+  const t = document.createElement('canvas');
+  t.width = 132; t.height = 92;
+  const c = t.getContext('2d');
+  c.fillStyle = '#080b14'; c.fillRect(0, 0, t.width, t.height);
+  const sw = Math.min(cv.width, cv.height * (t.width / t.height));   // centre-crop, keep the figure
+  const sh = sw * (t.height / t.width);
+  c.drawImage(cv, (cv.width - sw) / 2, (cv.height - sh) / 2, sw, sh, 0, 0, t.width, t.height);
+  return t.toDataURL('image/jpeg', 0.62);
+}
+
+function saveCheckpoint() {
+  if (KEYS.length >= 24) { flash('24 checkpoints is the limit — delete one first.'); return; }
+  draw();                                                   // thumbnail must show this exact state
+  KEYS.push({ id: Date.now() + Math.random(), state: capture(), thumb: thumbnail(), dur: 2.0 });
+  persist(); renderKeys();
+  flash(`Checkpoint ${KEYS.length} saved.`);
+}
+
+function persist() {
+  try { localStorage.setItem(STORE, JSON.stringify(KEYS)); } catch { /* private mode: session only */ }
+}
+function restore() {
+  try {
+    const raw = localStorage.getItem(STORE);
+    if (raw) JSON.parse(raw).forEach(k => KEYS.push(k));
+  } catch { /* ignore a corrupt store rather than dying on load */ }
+}
+
+function renderKeys() {
+  const list = $('keys-list');
+  list.innerHTML = '';
+  KEYS.forEach((k, i) => {
+    const row = document.createElement('div');
+    row.className = 'ck';
+    row.innerHTML =
+      `<img alt="Checkpoint ${i + 1}"><div class="ck-b">` +
+      `<b>${i + 1}</b>` +
+      (i ? `<label class="ck-d">${''}<input type="number" min="0.2" max="20" step="0.1" aria-label="Seconds to reach checkpoint ${i + 1}"> s</label>` : `<span class="ck-s">start</span>`) +
+      `</div><button class="ck-x" aria-label="Delete checkpoint ${i + 1}">×</button>`;
+    row.querySelector('img').src = k.thumb;
+    row.querySelector('img').onclick = () => {              // click a thumb to jump to that state
+      tl = null;
+      Object.assign(S, structuredClone(k.state));
+      S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
+      S.playing = false; S.breathe = false; S.move = '';
+      syncUI();
+    };
+    const dur = row.querySelector('input');
+    if (dur) {
+      dur.value = k.dur;
+      dur.oninput = e => { k.dur = Math.max(0.2, +e.target.value || 0.2); persist(); updateTlInfo(); };
+    }
+    row.querySelector('.ck-x').onclick = () => {
+      KEYS.splice(i, 1); persist(); renderKeys();
+    };
+    list.appendChild(row);
+  });
+  updateTlInfo();
+}
+
+function updateTlInfo() {
+  const n = KEYS.length, ok = n >= 2;
+  $('tl-play').disabled = !ok;
+  $('tl-export').disabled = !ok;
+  $('tl-info').textContent = ok
+    ? `${n} checkpoints · ${timelineLength().toFixed(1)}s`
+    : (n === 1 ? 'Save one more to make a path.' : 'Set the tesseract how you like, then save it.');
+}
+
+let flashT = null;
+function flash(msg) {
+  const el = $('flash');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(flashT);
+  flashT = setTimeout(() => el.classList.remove('on'), 1800);
+}
+
+$('ck-save').onclick = saveCheckpoint;
+$('ck-clear').onclick = () => {
+  if (!KEYS.length) return;
+  KEYS.length = 0; persist(); renderKeys(); flash('Checkpoints cleared.');
+};
+$('tl-play').onclick = () => {
+  if (tl) { stopTimeline(); return; }
+  startTimeline({ loop: $('tl-loop').checked });
+};
+
+// --- export: record the canvas while the timeline plays ------------------------
+function pickMime() {
+  const want = ['video/mp4;codecs=avc1.42E01E', 'video/webm;codecs=vp9', 'video/webm'];
+  return want.find(m => MediaRecorder.isTypeSupported(m)) || '';
+}
+$('tl-export').onclick = async () => {
+  if (KEYS.length < 2 || tl) return;
+  const mime = pickMime();
+  if (!window.MediaRecorder || !cv.captureStream || !mime) {
+    flash('This browser cannot record the canvas. Try Chrome or Firefox.');
+    return;
+  }
+  const btn = $('tl-export');
+  btn.disabled = true;
+  $('rec').classList.add('on');
+
+  const chunks = [];
+  const rec = new MediaRecorder(cv.captureStream(60), { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.onstop = () => {
+    const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(chunks, { type: mime }));
+    a.download = `tesseract-timeline.${ext}`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    $('rec').classList.remove('on');
+    btn.disabled = false;
+    flash(`Clip saved as .${ext}`);
+  };
+
+  Object.assign(S, structuredClone(KEYS[0].state));   // always start the recording on checkpoint 1
+  S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
+  draw();
+  rec.start();
+  startTimeline({ loop: false, onEnd: () => setTimeout(() => rec.stop(), 120) });
 };
 
 // drag: 3D by default, through w with shift — the fourth axis is one key away
@@ -484,12 +781,14 @@ cv.addEventListener('wheel', e => {
   S.zoom = Math.max(0.35, Math.min(2.6, S.zoom * (e.deltaY > 0 ? 0.94 : 1.06)));
 }, { passive: false });
 addEventListener('keydown', e => {
-  if (e.code === 'Space' && e.target === document.body) {
-    e.preventDefault(); S.playing = !S.playing; syncUI();
-  }
+  if (e.target !== document.body) return;
+  if (e.code === 'Space') { e.preventDefault(); if (tl) stopTimeline(); else { S.playing = !S.playing; syncUI(); } }
+  if (e.key === 's' || e.key === 'S') { e.preventDefault(); saveCheckpoint(); }
 });
 
 resize();
 apply(MOVES[reduced ? 0 : 1]);   // reduced motion lands on the still frame
+restore();
+renderKeys();
 requestAnimationFrame(frame);
 </script>
