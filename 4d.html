@@ -226,6 +226,7 @@
   <input type="range" id="hue" min="0" max="100" value="100">
 
   <button class="act primary" id="play">Pause</button>
+  <button class="act" id="rnd">Jump somewhere random</button>
   <button class="act" id="reset">Reset to the logo</button>
   <button class="act" id="png">Save PNG</button>
 
@@ -246,6 +247,11 @@
 
   <button class="act" id="tl-play" disabled><span id="tl-label">Play path</span> <span id="tl-pos"></span></button>
   <button class="act" id="tl-export" disabled>Export clip</button>
+
+  <p class="sub" style="margin:14px 0 6px; font-size:10.5px">Checkpoints live in this browser, for this site alone. A JSON file is how you move them somewhere else, or keep them safe.</p>
+  <button class="act" id="ck-json" disabled>Save checkpoints to JSON</button>
+  <button class="act" id="ck-load">Load checkpoints from JSON</button>
+  <input type="file" id="ck-file" accept="application/json,.json" hidden>
   <button class="act" id="ck-clear">Clear checkpoints</button>
 </div>
 
@@ -257,7 +263,7 @@
   </div>
   <div id="keys">
     <kbd>drag</kbd> turn in 3D · <kbd>shift</kbd>+<kbd>drag</kbd> turn through w<br>
-    <kbd>scroll</kbd> zoom · <kbd>space</kbd> play / pause · <kbd>s</kbd> save a checkpoint
+    <kbd>scroll</kbd> zoom · <kbd>space</kbd> play / pause · <kbd>r</kbd> random · <kbd>s</kbd> save a checkpoint
   </div>
   <div id="legend">
     <div id="ramp"></div>
@@ -503,11 +509,14 @@ const KEYS = [];                       // [{ id, state, thumb, dur }]  dur = sec
 let tl = null;                         // active timeline, or null
 
 const norm = a => ((a % TAU) + TAU) % TAU;
+// Line weight and w-depth colour are deliberately NOT part of a checkpoint. They are how you
+// like to LOOK at the thing, not what the thing is doing — so they stay put while a path plays
+// and whatever you set is what you see, throughout.
 function capture() {
   return {
     ang: S.ang.map(norm),              // normalised, so a save never carries hidden extra turns
     unfold: S.unfold, carrier: S.carrier, csign: S.csign, anchor: S.anchor,
-    projBlend: S.projBlend, lw: S.lw, hue: S.hue, zoom: S.zoom, roll: S.roll,
+    projBlend: S.projBlend, zoom: S.zoom, roll: S.roll,
   };
 }
 const lerp = (a, b, u) => a + (b - a) * u;
@@ -556,10 +565,9 @@ function tweenTo(A, B, u, v0 = 0, v1 = 0) {
   const e = hermite(u, v0, v1);
   for (let i = 0; i < 6; i++) S.ang[i] = A.ang[i] + shortest(A.ang[i], B.ang[i]) * e;
   S.projBlend = lerp(A.projBlend, B.projBlend, e);
-  S.lw = lerp(A.lw, B.lw, e);
-  S.hue = lerp(A.hue, B.hue, e);
   S.zoom = lerp(A.zoom, B.zoom, e);
   S.roll = lerp(A.roll || 0, B.roll || 0, e);              // roll is directional: no shortest-path
+  // S.lw and S.hue are intentionally untouched — see capture()
 
   if (discreteDiffer(A, B)) {
     if (e < 0.5) {                                         // close it, keeping A's net
@@ -762,6 +770,25 @@ $('proj').onchange = e => {
 $('lw').oninput = e => { S.lw = +e.target.value; $('v-lw').textContent = S.lw.toFixed(1); };
 $('hue').oninput = e => { S.hue = +e.target.value / 100; syncUI(); };
 $('play').onclick = () => { S.playing = !S.playing; syncUI(); };
+
+// A random place to stand: where the solid is (fold + which net), how it is turned (all six
+// planes + the camera's own roll), and how you are looking at it (perspective or flat, and how
+// close). Line weight and colour are yours and are left alone. Press s to keep what you land on.
+$('rnd').onclick = () => {
+  tl = null;
+  S.playing = false; S.breathe = false; S.move = ''; S.spin = [0,0,0,0,0,0];
+  S.ang = Array.from({ length: 6 }, () => Math.random() * TAU);
+  S.roll = Math.random() * TAU;
+  S.unfold = Math.random() < 0.35 ? 0 : Math.random();       // a fair few land folded, as the logo is
+  S.carrier = Math.floor(Math.random() * 3);
+  S.csign = Math.random() < 0.5 ? -1 : 1;
+  S.anchor = Math.random() < 0.5 ? -1 : 1;
+  S.proj = Math.random() < 0.25 ? 'petrie' : 'persp';        // the flat view is the rarer treat
+  S.projBlend = S.proj === 'petrie' ? 1 : 0;
+  S.zoom = 0.75 + Math.random() * 0.85;
+  syncDial(); syncUI(); draw();
+};
+
 $('reset').onclick = () => apply(MOVES[0]);
 $('png').onclick = () => {
   cv.toBlob(b => {
@@ -813,7 +840,14 @@ function persist() {
 function restore() {
   try {
     const raw = localStorage.getItem(STORE);
-    if (raw) JSON.parse(raw).forEach(k => KEYS.push(k));
+    if (!raw) return;
+    for (const k of JSON.parse(raw)) {
+      // Run every stored checkpoint through the sanitiser: it drops the line-weight and colour
+      // that older saves carried (they are view settings now, and must not override yours) and
+      // it means a corrupt store can't poison the lab.
+      KEYS.push({ id: k.id ?? Math.random(), state: cleanState(k.state), thumb: k.thumb,
+                  dur: clamp(k.dur, 0.2, 60, 2), hold: clamp(k.hold, 0, 60, 0) });
+    }
   } catch { /* ignore a corrupt store rather than dying on load */ }
 }
 
@@ -859,6 +893,7 @@ function updateTlInfo() {
   const n = KEYS.length, ok = n >= 2;
   $('tl-play').disabled = !ok;
   $('tl-export').disabled = !ok;
+  $('ck-json').disabled = !n;
   $('tl-info').textContent = ok
     ? `${n} checkpoints · ${timelineLength().toFixed(1)}s` +
       (AUTO.shuffle ? ' · random order' : '') +
@@ -913,6 +948,87 @@ $('ck-save').onclick = saveCheckpoint;
 $('ck-clear').onclick = () => {
   if (!KEYS.length) return;
   KEYS.length = 0; persist(); renderKeys(); flash('Checkpoints cleared.');
+};
+
+// --- checkpoints as a file: the only way off this browser -----------------------
+$('ck-json').onclick = () => {
+  const doc = {
+    app: 'tesseract-4d-lab',
+    version: 1,
+    checkpoints: KEYS.map(k => ({ state: k.state, dur: k.dur, hold: k.hold || 0, thumb: k.thumb })),
+  };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' }));
+  a.download = 'tesseract-checkpoints.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  flash(`${KEYS.length} checkpoints saved to JSON.`);
+};
+
+// An imported file is untrusted: coerce every field into its real range rather than
+// trusting it, so a hand-edited or corrupt file can't put the lab into a broken state.
+const clamp = (v, lo, hi, d) => { const n = +v; return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+function cleanState(s = {}) {
+  const ang = Array.isArray(s.ang) && s.ang.length === 6
+    ? s.ang.map(v => (Number.isFinite(+v) ? +v : 0))
+    : [0, 0, 0, 0, 0, 0];
+  return {                              // note: no lw / hue — those are view settings, not scene data
+    ang,
+    unfold:    clamp(s.unfold, 0, 1, 0),
+    carrier:   [0, 1, 2].includes(+s.carrier) ? +s.carrier : 2,   // never the base axis
+    csign:     +s.csign === -1 ? -1 : 1,
+    anchor:    +s.anchor === 1 ? 1 : -1,
+    projBlend: clamp(s.projBlend, 0, 1, 0),
+    zoom:      clamp(s.zoom, 0.35, 2.6, 1),
+    roll:      Number.isFinite(+s.roll) ? +s.roll : 0,
+  };
+}
+
+$('ck-load').onclick = () => $('ck-file').click();
+$('ck-file').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';                         // so the same file can be loaded twice
+  if (!file) return;
+  let raw;
+  try {
+    raw = JSON.parse(await file.text());
+  } catch {
+    flash("That file isn't valid JSON.");
+    return;
+  }
+  const list = Array.isArray(raw) ? raw : raw?.checkpoints;
+  if (!Array.isArray(list) || !list.length) {
+    flash('No checkpoints found in that file.');
+    return;
+  }
+  const before = KEYS.length;
+  for (const item of list) {
+    const state = cleanState(item?.state ?? item);            // accept bare states too
+    const thumb = typeof item?.thumb === 'string' && item.thumb.startsWith('data:image/')
+      ? item.thumb
+      : null;                                                 // no thumbnail? draw one below
+    KEYS.push({
+      id: Date.now() + Math.random(),
+      state,
+      thumb,
+      dur: clamp(item?.dur, 0.2, 60, 2),
+      hold: clamp(item?.hold, 0, 60, 0),
+    });
+  }
+  // Render a thumbnail for any checkpoint that arrived without one.
+  const keep = capture();
+  for (const k of KEYS) {
+    if (k.thumb) continue;
+    Object.assign(S, structuredClone(k.state));
+    draw();
+    k.thumb = thumbnail();
+  }
+  Object.assign(S, keep);
+  S.proj = S.projBlend > 0.5 ? 'petrie' : 'persp';
+  syncDial(); draw();
+
+  persist(); renderKeys();
+  flash(`Added ${KEYS.length - before} checkpoints — ${KEYS.length} in total.`);
 };
 $('tl-play').onclick = () => {
   if (tl) { stopTimeline(); return; }
@@ -986,6 +1102,7 @@ addEventListener('keydown', e => {
   if (e.target !== document.body) return;
   if (e.code === 'Space') { e.preventDefault(); if (tl) stopTimeline(); else { S.playing = !S.playing; syncUI(); } }
   if (e.key === 's' || e.key === 'S') { e.preventDefault(); saveCheckpoint(); }
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); $('rnd').click(); }
 });
 
 resize();
