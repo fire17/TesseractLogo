@@ -6,12 +6,13 @@
 [![geometry](https://img.shields.io/badge/geometry-16%20vertices%20%C2%B7%2032%20edges-e8b84a)](tesseract.py)
 [![generator](https://img.shields.io/badge/generator-python%20stdlib%20only-3776ab)](tesseract.py)
 [![playground](https://img.shields.io/badge/playground-zero%20dependencies-2ea44f)](index.html)
+[![4D lab](https://img.shields.io/badge/4D%20lab-6%20rotation%20planes%20%C2%B7%208%20cells-8b6bf0)](https://tesseract.akeyo.io/4d.html)
 [![live app](https://img.shields.io/badge/live%20app-github%20pages-8a2be2)](https://tesseract.akeyo.io/)
 [![stars](https://img.shields.io/github/stars/fire17/TesseractLogo?style=social)](https://github.com/fire17/TesseractLogo/stargazers)
 
 <i>A logo you can zoom into forever — because it isn't a picture, it's a theorem.</i>
 
-**[⚡ Quickstart](#-quickstart)** · **[🎨 Gallery](#-gallery--8-variants)** · **[🕹️ Playground](#%EF%B8%8F-the-playground)** · **[🧮 The math](#-the-math)** · **[🛠️ Making-of](#%EF%B8%8F-making-of)**
+**[🌀 Motion lab](#-the-motion-lab--watch-the-fourth-dimension)** · **[⚡ Quickstart](#-quickstart)** · **[🎨 Gallery](#-gallery--8-variants)** · **[🕹️ Playground](#%EF%B8%8F-the-playground)** · **[🧮 The math](#-the-math)** · **[🛠️ Making-of](#%EF%B8%8F-making-of)**
 
 </div>
 
@@ -32,7 +33,7 @@
 
 ## ⚡ Quickstart
 
-**Zero-install:** open the live playground → **https://tesseract.akeyo.io/** — drag sliders, pick colors, hit *Save PNG*.
+**Zero-install:** open the live playground → **[tesseract.akeyo.io](https://tesseract.akeyo.io/)** (drag sliders, pick colours, *Save PNG*), or the motion lab → **[tesseract.akeyo.io/4d.html](https://tesseract.akeyo.io/4d.html)** (turn it through the fourth dimension).
 
 Or regenerate every SVG master locally (stdlib only):
 
@@ -42,6 +43,19 @@ python3 tesseract.py            # emits all 8 SVG variants into the cwd
 # optional 4K raster: brew install librsvg
 rsvg-convert -w 4000 -h 4000 tesseract-outlined.svg -o tesseract-4k.png
 ```
+
+## 🌀 The motion lab — watch the fourth dimension
+
+**[tesseract.akeyo.io/4d.html](https://tesseract.akeyo.io/4d.html)** — the same 32 edges, now turning. Hue encodes the coordinate you can't point at: **cold is far in `w`, gold is near**, so the invisible axis becomes something you can actually watch.
+
+| | |
+|---|---|
+| <img src="assets/clips/insideout.gif" width="380"><br>**Inside-out** — one turn in the `xw` plane. The inner cube swaps places with the outer. No 3D object can do this. | <img src="assets/clips/clifford.gif" width="380"><br>**Clifford double** — two independent planes turning at once (`xy` and `zw`). Nothing on the shape stands still. |
+| <img src="assets/clips/dali.gif" width="380"><br>**Dalí cross** — the eight cubic cells hinge apart into the net Dalí painted in *Crucifixion*, then close again. | <img src="assets/clips/armx.gif" width="380"><br>**Long arm on x** — the same fold, but the eighth cell rides out along `x`: a genuinely different net. |
+
+Watch the colours in the unfolding clips: as the solid opens, every hue converges. That isn't a stylistic fade — a finished net lies flat in a single `w`-slice, so the fourth coordinate really has gone.
+
+Drag to turn it in 3D; hold **shift** and drag to turn it *through* `w`. Six rotation planes, a fold slider, six choices of which arm the eighth cell rides out on, and a **Petrie** stop that freezes the whole thing back into the logo at the top of this page.
 
 ## 🎨 Gallery — 8 variants
 
@@ -92,6 +106,29 @@ The outlined look is two stroke passes: every edge drawn wide in the outline col
 
 </details>
 
+<details>
+<summary><b>How the solid comes apart (the unfolding, and why "which direction" is a trick question)</b></summary>
+
+<br>
+
+A cube's surface is 6 squares that unfold into a flat net. A tesseract's surface is **8 cubes** — one per `coord = ±1` for each of the four axes — and they unfold into a *3D* net: the eight-cube cross Dalí painted in *Corpus Hypercubus*.
+
+The lab keeps all 8 cells as separate cubes (8 vertices and 12 edges each, **96 cell-edges** in total). Folded, three cells share every edge you see, so they coincide exactly and you count only the tesseract's 32. Open them and they come apart.
+
+One cell is the anchor and holds still. The six cells beside it each swing on a single hinge — a rotation in the plane spanned by their own axis and `w`, pivoting on the square face they share with the anchor:
+
+```js
+const u = p[a] - s, v = p[w] + 1;          // a = the cell's axis, s = its sign
+p[a] = s  + (u * cos + s * v * sin);
+p[w] = -1 + (-s * u * sin + v * cos);      // t: 0 → π/2
+```
+
+The eighth cell — the one opposite the anchor — has no face touching it, so it needs **two** hinges: it swings about the face it shares with a neighbour, and then rides outward as that neighbour swings too. That is why the finished net has one arm two cubes long.
+
+**Why "unfold in a different direction" is a trick question:** every unfolding of a tesseract is congruent to every other, so hinging about `x` instead of `w` only relabels the picture — it is not a new shape. What *does* change the net is which cell anchors and **which arm the eighth cell rides out on**, so those are the controls the lab actually exposes. All 12 combinations are asserted: folded → exactly 16 distinct vertices; opened → every cell centre flat in the anchor's hyperplane, the far cell at the end of the chosen arm.
+
+</details>
+
 ## 🛠️ Making-of
 
 Built in one Claude Code session (2026-07-11), driven by [fire17](https://github.com/fire17):
@@ -119,6 +156,7 @@ flowchart LR
 
 - First "inverted" pass used literal RGB negation on the gray-era renders — mid-gray inverts to nearly the same mid-gray, so the result barely changed. Superseded by regenerating pure black/white from vector.
 - The original raster couldn't be sharpened by upscaling (soft shadows baked in at 1000px) — that failure is *why* the math reconstruction exists.
+- The motion lab first shipped an "unfold along x / y / z" control. It rendered as flat plates, and the render was *right*: unfolding about `x` lands the net in the `(y, z, w)` hyperplane, so you are seeing a 3D object edge-on through the axis you can't look down. The honest fix was to delete the fake choice and expose the real one — which arm the eighth cell rides out on.
 
 ## 🛡️ Safety & undo
 
