@@ -64,7 +64,9 @@ Set the tesseract however you like, press **Save this state** (or `s`), and it b
 
 **Even speed** (on by default) times each leg from the *distance* between its two states, so a big change takes proportionally longer and the motion runs at one unbroken pace — it never brakes into a checkpoint just because one is there. Give a checkpoint a **stay** time and it becomes a scene: the motion eases to rest, dwells for as long as you asked, and eases back out. **Shuffle** picks the next state at random instead of in order. The **dial** in the corner rolls the camera about its own axis, and **random camera roll** gives every leg a fresh clockwise turn.
 
-A checkpoint stores everything you can adjust: all six plane angles, the fold, the net, the projection, colour, line weight and zoom. Three things about the travel are deliberate, because the naive version is wrong:
+A checkpoint stores what the tesseract is *doing*: all six plane angles, the fold, the net, the projection, the camera roll and the zoom. It deliberately does **not** store line weight or w-depth colour — those are how you like to *look* at the thing, not what it is doing, so they stay exactly where you set them while a path plays. **Jump somewhere random** (or `r`) throws the whole state somewhere new — fold, net, all six angles, roll, view type and zoom — leaving your line weight and colour alone; press `s` to keep what you land on.
+
+Four things about the travel are deliberate, because the naive version is wrong:
 
 | | |
 |---|---|
@@ -72,6 +74,13 @@ A checkpoint stores everything you can adjust: all six plane angles, the fold, t
 | **Angles take the short way round** | A save at 350° travelling to 10° turns forward 20°, not backward 340°. |
 | **Projections morph, they don't cut** | Perspective and Petrie are blended per-vertex, so the solid melts into its flat shadow instead of snapping. |
 | **Re-anchoring folds the solid shut first** | Which cell anchors, and which arm carries the eighth cell, are *discrete* — there is no halfway. And physically you cannot re-anchor a solid while it lies open. So a leg that changes them closes the net, switches, and opens the new one. The fold **is** the transition. |
+
+**Where your checkpoints live.** In your browser's `localStorage`, under the key `tesseract.checkpoints.v1`, scoped to the site's origin. Nothing is uploaded and there is no account — which has two consequences worth being precise about:
+
+- **Publishing a new version of this site does *not* erase them.** `localStorage` is keyed by origin, not by the files, so a redeploy leaves it untouched. This was verified end-to-end, not assumed: three checkpoints were saved on the live site, a genuinely different build was pushed, and after the redeploy all three were still there. `logo.akeyo.io` redirects to the canonical origin, so it sees the same checkpoints.
+- **They are tied to one browser on one machine.** Clearing site data, or a private window, drops them. They do not follow you to another browser or device — and a copy running on `localhost` is a different origin, so it has its own separate set.
+
+So the file *is* the durable copy: **Save checkpoints to JSON** writes them out, **Load checkpoints from JSON** reads them back and **appends** (so you can merge two paths). An imported file is treated as untrusted — every field is coerced back into its real range, and a checkpoint that arrives without a thumbnail gets one rendered from its own state.
 
 Export uses the browser's own recorder on the live canvas (MP4 where supported, WebM otherwise) — no server, no upload; the clip is rendered on your machine from the same code you are watching.
 
