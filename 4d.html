@@ -643,8 +643,10 @@ function stopTimeline() { const cb = tl?.onEnd; tl = null; syncUI(); cb?.(); }
 
 function stepTimeline(dt) {
   if (tl.holding > 0) {                                     // dwell on a scene, then move on
-    tl.holding -= dt;
-    if (tl.holding <= 0 && tl.ending) stopTimeline();       // the last scene's dwell is the end
+    // Clamp at zero. Left negative, `holding` stays truthy, the leg loop below never runs
+    // again, and the path freezes on the held frame forever.
+    tl.holding = Math.max(0, tl.holding - dt);
+    if (tl.holding === 0 && tl.ending) stopTimeline();      // the last scene's dwell is the end
     return;
   }
   if (tl.ending) { stopTimeline(); return; }
@@ -653,7 +655,7 @@ function stepTimeline(dt) {
   // frame standing still at every checkpoint — a one-frame stall at each one, which is exactly
   // the stutter this mode exists to remove.
   let budget = dt;
-  while (budget > 0 && tl && !tl.holding && !tl.ending) {
+  while (budget > 0 && tl && tl.holding <= 0 && !tl.ending) {   // <= 0, never !holding
     const left = tl.dur - tl.t;
     if (budget < left || tl.dur <= 0) {
       tl.t += budget;
