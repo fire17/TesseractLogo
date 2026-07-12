@@ -143,6 +143,8 @@
   .tog { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; color: var(--muted); font-size: 11px; }
   .tog input { width: auto; accent-color: var(--gold); }
   #pace-wrap { margin: 0 0 9px; }
+  .fxg { padding: 2px 0 10px 16px; border-left: 1px solid var(--edge); margin: 0 0 8px; }
+  .fxg[hidden] { display: none; }
 
   /* the roll dial — an HTML overlay, so it is never part of an exported frame */
   #dial {
@@ -213,6 +215,36 @@
     <div><label class="hint4d">zw</label><input type="range" id="r-zw" min="-60" max="60" value="0"></div>
   </div>
   <p class="sub" style="margin:9px 0 0; font-size:10.5px">The three gold planes turn through <i>w</i>. Only they can make the cube pass through itself.</p>
+
+  <h2>Fractal</h2>
+  <p class="sub" style="margin:0 0 9px; font-size:10.5px">Each copy is the solid put through its own rotation again. The ornament is the state, iterated — not decoration laid over it.</p>
+
+  <label class="tog"><input type="checkbox" id="fx-nest-on"> nest — the state, iterated inward</label>
+  <div class="fxg" id="fx-nest-g">
+    <label>depth <span class="v" id="v-nest">3.0</span></label>
+    <input type="range" id="fx-nest" min="0" max="8" step="0.1" value="3">
+    <label>shrink <span class="v" id="v-nestr">0.62</span></label>
+    <input type="range" id="fx-nestr" min="0.3" max="0.95" step="0.01" value="0.62">
+    <label>twist <span class="v" id="v-nestt">0.22</span></label>
+    <input type="range" id="fx-nestt" min="-1" max="1" step="0.01" value="0.22">
+  </div>
+
+  <label class="tog"><input type="checkbox" id="fx-bloom-on"> bloom — a tesseract at every vertex</label>
+  <div class="fxg" id="fx-bloom-g">
+    <label>amount <span class="v" id="v-bloom">0.8</span></label>
+    <input type="range" id="fx-bloom" min="0" max="1" step="0.01" value="0.8">
+    <label>size <span class="v" id="v-blooms">0.30</span></label>
+    <input type="range" id="fx-blooms" min="0.05" max="0.6" step="0.01" value="0.3">
+    <label>spread <span class="v" id="v-bloomsp">1.15</span></label>
+    <input type="range" id="fx-bloomsp" min="0.6" max="2" step="0.01" value="1.15">
+  </div>
+
+  <label class="tog"><input type="checkbox" id="fx-kal-on"> kaleidoscope — fold the view</label>
+  <div class="fxg" id="fx-kal-g">
+    <label>order <span class="v" id="v-kal">8.0</span></label>
+    <input type="range" id="fx-kal" min="1" max="12" step="0.1" value="8">
+    <label class="tog"><input type="checkbox" id="fx-kalm"> mirror alternate folds</label>
+  </div>
 
   <h2>View</h2>
   <label>projection</label>
@@ -365,6 +397,16 @@ function rotate(p, ang) {
 // The logo's own projection: the Petrie basis, angles π/8 + kπ/4.
 const PET = [0,1,2,3].map(k => { const th = Math.PI/8 + k*Math.PI/4; return [Math.cos(th), Math.sin(th)]; });
 
+// The plain tesseract: 16 vertices, 32 edges. When the solid is folded shut, the 8 cells'
+// 96 edges coincide in threes onto exactly these — so drawing these instead is identical
+// and three times cheaper. That headroom is what pays for the fractal effects below.
+const V16 = [];
+for (let m = 0; m < 16; m++) V16.push([0,1,2,3].map(i => (m >> i & 1) ? 1 : -1));
+const E32 = [];
+for (let a = 0; a < 16; a++) for (let b = a + 1; b < 16; b++) {
+  if (V16[a].reduce((n, c, i) => n + (c !== V16[b][i]), 0) === 1) E32.push([a, b]);
+}
+
 // ---------------------------------------------------------------------------
 // Movements — each is a real, named phenomenon, not a decorative preset.
 // ---------------------------------------------------------------------------
@@ -401,6 +443,10 @@ const S = {
   proj: 'petrie', projBlend: 1, // projBlend is what draws; proj is what the select says
   lw: 2.4, hue: 1, zoom: 1,
   roll: 0,                      // camera roll: the view turning about its own axis
+  // Fractal ornament, all derived from the state itself. Continuous, so they tween.
+  fxNest: 0, fxNestRatio: 0.62, fxNestTwist: 0.22,
+  fxBloom: 0, fxBloomSize: 0.3, fxBloomSpread: 1.15,
+  fxKal: 1, fxKalMirror: false,
   playing: !reduced, move: 'petrie', t: 0,
 };
 
@@ -423,6 +469,41 @@ function wColor(w, mix) {
   return `rgb(${m[0]},${m[1]},${m[2]})`;
 }
 
+// The fractal instances. Each one is a copy of the whole solid placed by a 4D transform
+// DERIVED FROM THE CURRENT STATE — that is the point: the figure is iterated through its
+// own rotation, so the ornament is the state, not decoration laid on top of it.
+function instances(fitScale) {
+  const inst = [{ off: null, scale: 1, twist: null, alpha: 1 }];
+
+  // Nest: an iterated function system whose map is your own rotation. Level k is the solid
+  // scaled by ratio^k and turned by k further doses of the angles you are already at.
+  if (S.fxNest > 0) {
+    const levels = Math.ceil(S.fxNest);
+    for (let k = 1; k <= levels; k++) {
+      const fade = Math.min(1, S.fxNest - (k - 1));        // fractional depth: the last level fades in
+      inst.push({
+        off: null,
+        scale: Math.pow(S.fxNestRatio, k),
+        twist: S.ang.map(a => a * S.fxNestTwist * k),
+        alpha: fade * Math.pow(0.82, k - 1),
+      });
+    }
+  }
+
+  // Bloom: a smaller tesseract sprouting from each of the 16 vertices of this one.
+  if (S.fxBloom > 0) {
+    for (const v of V16) {
+      inst.push({
+        off: v.map(c => c * S.fxBloomSpread * fitScale),
+        scale: S.fxBloomSize,
+        twist: S.ang.map(a => -a * S.fxNestTwist),         // counter-turned, so children read as distinct
+        alpha: S.fxBloom * 0.9,
+      });
+    }
+  }
+  return inst;
+}
+
 function draw() {
   const w = cv.clientWidth, h = cv.clientHeight;
   ctx.fillStyle = '#080b14';
@@ -433,12 +514,19 @@ function draw() {
   const pb = S.projBlend;            // 0 = perspective, 1 = Petrie; blended, so it can morph
   const segs = [];
 
+  // Folded, the 8 cells' 96 edges land on top of each other in threes, so the plain 32-edge
+  // tesseract draws the identical picture for a third of the work.
+  const folded = t < 0.002;
+  const groups = folded
+    ? [{ verts: V16, edges: E32 }]
+    : CELLS.map(c => ({ verts: c.verts.map(v => unfoldPoint(v, c, t, S.anchor, S.carrier, S.csign)),
+                        edges: c.edges }));
+
   // Unfold first, then fit: the net spans ~3× the folded cube, so normalise by the
   // centroid and radius of the actual 4D point cloud. Rotation preserves both, so
   // the fit is stable frame to frame instead of jittering. A side effect that is
   // also the truth: a fully unfolded net lies in one w-slice, so its hues converge.
-  const cloud = CELLS.map(cell => cell.verts.map(v => unfoldPoint(v, cell, t, S.anchor, S.carrier, S.csign)));
-  const flat = cloud.flat();
+  const flat = groups.flatMap(g => g.verts);
   const ctr = [0,1,2,3].map(i => flat.reduce((s, p) => s + p[i], 0) / flat.length);
   let maxR = 0;
   for (const p of flat) {
@@ -450,48 +538,74 @@ function draw() {
   // because that foreshortening is what sells the cube-within-a-cube.
   const cam3 = 4.2 + 1.7 * S.unfold;
   const rc = Math.cos(S.roll), rs = Math.sin(S.roll);
+  const inst = instances(fit);
 
-  for (let ci = 0; ci < CELLS.length; ci++) {
-    const cell = CELLS[ci];
-    const pts = cloud[ci].map(v0 => {
-      const p = rotate(v0.map((x, i) => (x - ctr[i]) * fit), S.ang);
-      // Both projections, then blended: a hard cut between them would be a jump, and
-      // the morph between "solid in perspective" and "the logo's flat shadow" is worth seeing.
-      const k4 = 3.4 / (3.4 - p[3]);                       // 4D → 3D (this one makes the cube-in-cube)
-      const [X, Y, Z] = [p[0] * k4, p[1] * k4, p[2] * k4];
-      const k3 = cam3 / (cam3 - Z);                        // 3D → 2D
-      let X2 = cx + X * k3 * R / 2.1, Y2 = cy - Y * k3 * R / 2.1;
-      if (pb > 0) {                                        // blend toward the flat Petrie shadow
-        const ex = p.reduce((s, c, i) => s + c * PET[i][0], 0);
-        const ey = p.reduce((s, c, i) => s + c * PET[i][1], 0);
-        X2 += (cx + ex * R / 2.62 - X2) * pb;
-        Y2 += (cy - ey * R / 2.62 - Y2) * pb;
+  for (const I of inst) {
+    for (const g of groups) {
+      const pts = g.verts.map(v0 => {
+        let p = v0.map((x, i) => (x - ctr[i]) * fit);
+        if (I.twist) p = rotate(p, I.twist);
+        if (I.scale !== 1) p = p.map(c => c * I.scale);
+        if (I.off) p = p.map((c, i) => c + I.off[i]);
+        p = rotate(p, S.ang);
+        // Both projections, then blended: a hard cut between them would be a jump, and
+        // the morph between "solid in perspective" and "the logo's flat shadow" is worth seeing.
+        const k4 = 3.4 / (3.4 - p[3]);                       // 4D → 3D (this one makes the cube-in-cube)
+        const [X, Y, Z] = [p[0] * k4, p[1] * k4, p[2] * k4];
+        const k3 = cam3 / (cam3 - Z);                        // 3D → 2D
+        let X2 = cx + X * k3 * R / 2.1, Y2 = cy - Y * k3 * R / 2.1;
+        if (pb > 0) {                                        // blend toward the flat Petrie shadow
+          const ex = p.reduce((s, c, i) => s + c * PET[i][0], 0);
+          const ey = p.reduce((s, c, i) => s + c * PET[i][1], 0);
+          X2 += (cx + ex * R / 2.62 - X2) * pb;
+          Y2 += (cy - ey * R / 2.62 - Y2) * pb;
+        }
+        if (rs) {                                            // camera roll: the view turns about its own axis
+          const dx = X2 - cx, dy = Y2 - cy;                  // screen y grows downward, so +roll reads clockwise
+          X2 = cx + dx * rc - dy * rs;
+          Y2 = cy + dx * rs + dy * rc;
+        }
+        return { x: X2, y: Y2, w: p[3], depth: Z * (1 - pb) };  // Petrie is orthographic: no depth
+      });
+      for (const [a, b] of g.edges) {
+        const p = pts[a], q = pts[b];
+        segs.push({ p, q, depth: (p.depth + q.depth) / 2, w: (p.w + q.w) / 2,
+                    alpha: I.alpha, scale: I.scale });
       }
-      if (rs) {                                            // camera roll: the view turns about its own axis
-        const dx = X2 - cx, dy = Y2 - cy;                  // screen y grows downward, so +roll reads clockwise
-        X2 = cx + dx * rc - dy * rs;
-        Y2 = cy + dx * rs + dy * rc;
-      }
-      return { x: X2, y: Y2, w: p[3], depth: Z * (1 - pb) };  // Petrie is orthographic: no depth
-    });
-    for (const [a, b] of cell.edges) {
-      const p = pts[a], q = pts[b];
-      segs.push({ p, q, depth: (p.depth + q.depth) / 2, w: (p.w + q.w) / 2 });
     }
   }
 
+  // Kaleidoscope: fold the finished picture about the view axis. At order 8 it lands exactly
+  // on the octagonal symmetry the Petrie projection already has, so the logo agrees with itself.
+  const order = S.fxKal;
+  const copies = order > 1.001 ? Math.ceil(order) : 1;
+
   segs.sort((a, b) => a.depth - b.depth);                  // painter's: far first
   ctx.lineCap = 'round';
-  for (const s of segs) {
-    const d = Math.max(0, Math.min(1, (s.depth + 2.2) / 4.4));
-    const near = d + (0.5 - d) * pb;                        // depth cueing fades out with the morph
-    ctx.strokeStyle = wColor(s.w, S.hue);
-    ctx.lineWidth = S.lw * (0.55 + near * 0.9 + pb * (1 - (0.55 + near * 0.9)));
-    ctx.globalAlpha = (0.45 + near * 0.55) + pb * (1 - (0.45 + near * 0.55));
-    ctx.beginPath();
-    ctx.moveTo(s.p.x, s.p.y);
-    ctx.lineTo(s.q.x, s.q.y);
-    ctx.stroke();
+  for (let j = 0; j < copies; j++) {
+    const ka = j * TAU / order;
+    const kc = Math.cos(ka), ks = Math.sin(ka);
+    const kAlpha = j === copies - 1 ? Math.min(1, order - (copies - 1)) : 1;   // last copy fades in
+    const mirror = S.fxKalMirror && (j % 2 === 1) ? -1 : 1;
+    for (const s of segs) {
+      const d = Math.max(0, Math.min(1, (s.depth + 2.2) / 4.4));
+      const near = d + (0.5 - d) * pb;                      // depth cueing fades out with the morph
+      ctx.strokeStyle = wColor(s.w, S.hue);
+      ctx.lineWidth = S.lw * (0.55 + near * 0.9 + pb * (1 - (0.55 + near * 0.9))) * Math.max(0.25, s.scale);
+      ctx.globalAlpha = ((0.45 + near * 0.55) + pb * (1 - (0.45 + near * 0.55))) * s.alpha * kAlpha;
+      ctx.beginPath();
+      if (j === 0) {
+        ctx.moveTo(s.p.x, s.p.y);
+        ctx.lineTo(s.q.x, s.q.y);
+      } else {
+        for (const [n, e] of [[0, s.p], [1, s.q]]) {
+          const dx = (e.x - cx) * mirror, dy = e.y - cy;
+          const x = cx + dx * kc - dy * ks, y = cy + dx * ks + dy * kc;
+          n === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+    }
   }
   ctx.globalAlpha = 1;
 
@@ -507,6 +621,7 @@ function draw() {
 const TAU = Math.PI * 2;
 const KEYS = [];                       // [{ id, state, thumb, dur }]  dur = seconds to travel INTO it
 let tl = null;                         // active timeline, or null
+const FX_NUM = ['fxNest','fxNestRatio','fxNestTwist','fxBloom','fxBloomSize','fxBloomSpread','fxKal'];
 
 const norm = a => ((a % TAU) + TAU) % TAU;
 // Line weight and w-depth colour are deliberately NOT part of a checkpoint. They are how you
@@ -517,6 +632,9 @@ function capture() {
     ang: S.ang.map(norm),              // normalised, so a save never carries hidden extra turns
     unfold: S.unfold, carrier: S.carrier, csign: S.csign, anchor: S.anchor,
     projBlend: S.projBlend, zoom: S.zoom, roll: S.roll,
+    fxNest: S.fxNest, fxNestRatio: S.fxNestRatio, fxNestTwist: S.fxNestTwist,
+    fxBloom: S.fxBloom, fxBloomSize: S.fxBloomSize, fxBloomSpread: S.fxBloomSpread,
+    fxKal: S.fxKal, fxKalMirror: S.fxKalMirror,
   };
 }
 const lerp = (a, b, u) => a + (b - a) * u;
@@ -567,6 +685,8 @@ function tweenTo(A, B, u, v0 = 0, v1 = 0) {
   S.projBlend = lerp(A.projBlend, B.projBlend, e);
   S.zoom = lerp(A.zoom, B.zoom, e);
   S.roll = lerp(A.roll || 0, B.roll || 0, e);              // roll is directional: no shortest-path
+  for (const f of FX_NUM) S[f] = lerp(A[f] ?? S[f], B[f] ?? S[f], e);   // the ornament travels too
+  S.fxKalMirror = (e < 0.5 ? A : B).fxKalMirror ?? false;              // a mirror cannot be half on
   // S.lw and S.hue are intentionally untouched — see capture()
 
   if (discreteDiffer(A, B)) {
@@ -741,6 +861,19 @@ function syncUI() {
   $('anchor').value = S.anchor;
   $('proj').value = S.proj;
   $('play').textContent = S.playing ? 'Pause' : 'Play';
+  for (const f of FX_GROUPS) {
+    const on = S[f.key] > (f.off ?? 0) + 1e-6;
+    $(f.on).checked = on;
+    $(f.g).hidden = !on;
+  }
+  $('fx-nest').value = S.fxNest;   $('v-nest').textContent = S.fxNest.toFixed(1);
+  $('fx-nestr').value = S.fxNestRatio; $('v-nestr').textContent = S.fxNestRatio.toFixed(2);
+  $('fx-nestt').value = S.fxNestTwist; $('v-nestt').textContent = S.fxNestTwist.toFixed(2);
+  $('fx-bloom').value = S.fxBloom; $('v-bloom').textContent = S.fxBloom.toFixed(2);
+  $('fx-blooms').value = S.fxBloomSize; $('v-blooms').textContent = S.fxBloomSize.toFixed(2);
+  $('fx-bloomsp').value = S.fxBloomSpread; $('v-bloomsp').textContent = S.fxBloomSpread.toFixed(2);
+  $('fx-kal').value = S.fxKal; $('v-kal').textContent = S.fxKal.toFixed(1);
+  $('fx-kalm').checked = !!S.fxKalMirror;
   $('v-lw').textContent = S.lw.toFixed(1);
   $('v-hue').textContent = S.hue > 0.5 ? 'on' : (S.hue > 0 ? 'faint' : 'off');
 }
@@ -769,6 +902,33 @@ $('proj').onchange = e => {
     if (u < 1) requestAnimationFrame(step);
   })(t0);
 };
+// --- fractal controls. Each toggle just parks/restores the amount, so turning an effect
+// off and on again brings back what you had rather than a default.
+const FX_GROUPS = [
+  { on: 'fx-nest-on',  g: 'fx-nest-g',  key: 'fxNest',  slider: 'fx-nest',  live: 3 },
+  { on: 'fx-bloom-on', g: 'fx-bloom-g', key: 'fxBloom', slider: 'fx-bloom', live: 0.8 },
+  { on: 'fx-kal-on',   g: 'fx-kal-g',   key: 'fxKal',   slider: 'fx-kal',   live: 8, off: 1 },
+];
+for (const f of FX_GROUPS) {
+  $(f.on).onchange = e => {
+    const off = f.off ?? 0;
+    S[f.key] = e.target.checked ? (+$(f.slider).value || f.live) : off;
+    $(f.g).hidden = !e.target.checked;
+    S.move = ''; syncUI();
+  };
+}
+const fxSlider = (id, key, label, dp = 2) => {
+  $(id).oninput = e => { S[key] = +e.target.value; $(label).textContent = S[key].toFixed(dp); S.move = ''; };
+};
+fxSlider('fx-nest', 'fxNest', 'v-nest', 1);
+fxSlider('fx-nestr', 'fxNestRatio', 'v-nestr');
+fxSlider('fx-nestt', 'fxNestTwist', 'v-nestt');
+fxSlider('fx-bloom', 'fxBloom', 'v-bloom');
+fxSlider('fx-blooms', 'fxBloomSize', 'v-blooms');
+fxSlider('fx-bloomsp', 'fxBloomSpread', 'v-bloomsp');
+fxSlider('fx-kal', 'fxKal', 'v-kal', 1);
+$('fx-kalm').onchange = e => { S.fxKalMirror = e.target.checked; };
+
 $('lw').oninput = e => { S.lw = +e.target.value; $('v-lw').textContent = S.lw.toFixed(1); };
 $('hue').oninput = e => { S.hue = +e.target.value / 100; syncUI(); };
 $('play').onclick = () => { S.playing = !S.playing; syncUI(); };
